@@ -1,0 +1,10 @@
+services:
+  pixel-hq:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - MAX_PLAYERS=16
+      # Optional TURN server for users behind strict NATs, e.g.:
+      # - ICE_SERVERS=[{"urls":"stun:stun.l.google.com:19302"},{"urls":"turn:turn.example.com:3478","username":"u","credential":"p"}]
+    restart: unless-stopped

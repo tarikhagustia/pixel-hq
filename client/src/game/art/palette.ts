@@ -1,0 +1,33 @@
+// Shared cozy palette (warm woods, soft pastels, dark brown outlines).
+export const P = {
+  outline: '#2b1d16',
+  woodLight: '#d9a06a',
+  wood: '#c98d58',
+  woodMid: '#b07a4a',
+  woodDark: '#8a5a34',
+  woodDeep: '#6b4a2f',
+  cream: '#f3e7cf',
+  paper: '#fbf6ea',
+  metal: '#9aa3ad',
+  metalDark: '#5c6370',
+  metalDeep: '#3a3f4a',
+  screenOff: '#1f2a3a',
+  screenBg: '#142033',
+  leaf: '#5b9a42',
+  leafLight: '#7fbf5a',
+  leafDark: '#3f7a35',
+  pot: '#c0674b',
+  potDark: '#9c4e38',
+  red: '#d9534f',
+  orange: '#f0a04b',
+  yellow: '#f6d365',
+  green: '#6cc070',
+  teal: '#4fb3a9',
+  blue: '#5b8fd9',
+  purple: '#9b6bd1',
+  pink: '#f08fb0',
+  white: '#ffffff',
+  glow: '#ffe9a8',
+};
+
+export const CODE_COLORS = ['#7fdbca', '#c792ea', '#82aaff', '#ffcb6b', '#f78c6c', '#c3e88d', '#89ddff'];
