@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { config } from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
+
+config();
 import {
   type Avatar, type ChatMessage, type ClientMsg, type PlayerState, type ServerMsg,
   type RTCIceServerLike, MAX_CHAT_LEN, MAX_NAME_LEN, NEARBY_CHAT_RADIUS, EMOTES,
