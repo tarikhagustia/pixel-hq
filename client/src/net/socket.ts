@@ -8,12 +8,30 @@ type SignalHandler = (from: string, data: SignalData) => void;
 let ws: WebSocket | null = null;
 let signalHandler: SignalHandler | null = null;
 let pingTimer: number | undefined;
+let reconnectTimer: number | undefined;
+let reconnectAttempt = 0;
+let reconnectInFlight = false;
 export let iceServers: RTCIceServerLike[] = [];
 
 export function onSignal(h: SignalHandler) { signalHandler = h; }
 
 export function send(msg: ClientMsg) {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+}
+
+function scheduleReconnect() {
+  if (reconnectTimer) return;
+  const delay = Math.min(2000 * 2 ** reconnectAttempt, 15000);
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = undefined;
+    reconnectAttempt++;
+    connect()
+      .then(() => {
+        reconnectAttempt = 0;
+        reconnectInFlight = false;
+      })
+      .catch(() => scheduleReconnect());
+  }, delay);
 }
 
 export function connect(): Promise<void> {
@@ -32,10 +50,13 @@ export function connect(): Promise<void> {
     ws.onclose = () => {
       clearInterval(pingTimer);
       if (welcomed) {
-        toast('Disconnected from the office — reconnecting…');
-        remotes.clear();
-        set({ players: {}, voicePeers: [] });
-        setTimeout(() => connect().catch(() => toast('Still offline. Retrying…')), 2000);
+        if (!reconnectInFlight) {
+          reconnectInFlight = true;
+          toast('Disconnected from the office — reconnecting…');
+          remotes.clear();
+          set({ players: {}, voicePeers: [] });
+        }
+        scheduleReconnect();
       }
     };
     ws.onmessage = (ev) => {

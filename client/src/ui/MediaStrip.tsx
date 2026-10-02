@@ -19,12 +19,43 @@ function Video({ stream, track, mirror }: { stream?: MediaStream; track?: MediaS
 interface TileInfo { key: string; name: string; avatar: Avatar; speaking: boolean; mic: boolean; video?: MediaStream; track?: MediaStreamTrack | null; kind: 'cam' | 'screen' | 'avatar'; self?: boolean }
 
 function Tile({ t, onFocus, big }: { t: TileInfo; onFocus?: () => void; big?: boolean }) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const [isFs, setIsFs] = useState(false);
+  const canFullscreen = big && t.kind === 'screen';
+
+  useEffect(() => {
+    if (!canFullscreen) return;
+    const onChange = () => setIsFs((document.fullscreenElement ?? (document as any).webkitFullscreenElement) === divRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange);
+    };
+  }, [canFullscreen]);
+
+  const toggleFullscreen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = divRef.current as any;
+    if (!el) return;
+    if (!(document.fullscreenElement ?? (document as any).webkitFullscreenElement)) {
+      (el.requestFullscreen ?? el.webkitRequestFullscreen)?.call(el);
+    } else {
+      (document.exitFullscreen ?? (document as any).webkitExitFullscreen)?.call(document);
+    }
+  };
+
   return (
-    <div className={`tile ${t.speaking ? 'speaking' : ''} ${t.kind} ${big ? 'big' : ''}`} onClick={onFocus} title={onFocus ? 'Click to enlarge' : undefined}>
+    <div ref={divRef} className={`tile ${t.speaking ? 'speaking' : ''} ${t.kind} ${big ? 'big' : ''}`} onClick={onFocus} title={onFocus ? 'Click to enlarge' : undefined}>
       {t.kind === 'avatar'
         ? <div className="tile-avatar"><Portrait avatar={t.avatar} size={big ? 96 : 44} /></div>
         : <Video stream={t.video} track={t.track} mirror={t.self && t.kind === 'cam'} />}
       <div className="tile-name">{!t.mic && '🔇 '}{t.kind === 'screen' ? `🖥️ ${t.name}` : t.name}</div>
+      {canFullscreen && (
+        <button className="icon-btn tile-fullscreen-btn" onClick={toggleFullscreen} title={isFs ? 'Exit fullscreen' : 'Fullscreen'}>
+          {isFs ? '⤡' : '⛶'}
+        </button>
+      )}
     </div>
   );
 }

@@ -145,6 +145,10 @@ input[type='range'] { padding: 0; accent-color: var(--accent); }
 .media-strip.meeting .tile { width: 160px; height: 110px; }
 .stage .tile.big { width: min(760px, calc(100vw - 600px)); height: auto; aspect-ratio: 16 / 9; min-width: 360px; }
 @media (max-width: 1100px) { .stage .tile.big { width: calc(100vw - 24px); min-width: 0; } }
+.tile-fullscreen-btn { position: absolute; top: 4px; right: 4px; z-index: 1; background: rgba(30, 20, 15, 0.55); }
+.tile-fullscreen-btn:hover { background: rgba(30, 20, 15, 0.8); }
+.tile:fullscreen, .tile:-webkit-full-screen { width: 100vw; height: 100vh; }
+.tile:fullscreen video, .tile:-webkit-full-screen video { object-fit: contain; }
 
 .toasts { position: absolute; top: 76px; left: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .toast { background: rgba(43, 29, 22, 0.88); color: #fff6e5; padding: 6px 12px; border-radius: 5px; border: 2px solid var(--wood); font-size: 14px; animation: pop 0.2s ease-out; max-width: 360px; }
