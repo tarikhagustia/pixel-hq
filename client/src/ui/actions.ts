@@ -1,13 +1,27 @@
 // UI-level actions shared by components (keeps components thin).
 import type { Avatar, ChatChannel, Status } from '../../../shared/protocol';
-import { send } from '../net/socket';
+import { connect, send } from '../net/socket';
 import { media } from '../rtc/media';
+import { startRTC } from '../rtc/peers';
 import { get, patchMe, persistProfile, set } from '../state/store';
 import type { Engine } from '../game/engine';
 
 let engine: Engine | null = null;
 export const bindEngine = (e: Engine | null) => { engine = e; };
 export const getEngine = () => engine;
+
+/** Connect using whatever name/avatar is already in the store (manual join or restored from a refresh). */
+export async function enterOffice(): Promise<void> {
+  set({ phase: 'connecting' });
+  try {
+    startRTC();
+    await connect();
+    void media.initMic();
+  } catch (err) {
+    set({ phase: 'join' });
+    throw err;
+  }
+}
 
 export function setStatus(status: Status) {
   patchMe({ status });

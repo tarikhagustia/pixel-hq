@@ -1,11 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MAX_NAME_LEN } from '../../../shared/protocol';
 import { DEFAULT_AVATARS } from '../game/art/character';
-import { connect } from '../net/socket';
-import { media } from '../rtc/media';
-import { startRTC } from '../rtc/peers';
-import { patchMe, persistProfile, set, useStore } from '../state/store';
+import { patchMe, persistProfile, useStore } from '../state/store';
 import { AvatarEditor } from './AvatarEditor';
+import { enterOffice } from './actions';
 import { MapBackdrop } from './MapBackdrop';
 import { Portrait } from './Portrait';
 
@@ -15,6 +13,13 @@ export function JoinScreen() {
   const [name, setName] = useState(me.name);
   const [avatar, setAvatar] = useState(me.avatar);
   const [error, setError] = useState('');
+  // Refreshing the page restores the saved name/avatar and phase='connecting' (state/store.ts) —
+  // pick that up on mount and rejoin automatically instead of making the user fill the form again.
+  // Deliberately runs once on mount only (not on every `phase` change), since later transitions
+  // into 'connecting' come from the manual `join()` submit handler below, which already connects.
+  useEffect(() => {
+    if (phase === 'connecting') enterOffice().catch((err) => setError((err as Error).message));
+  }, []);
 
   const join = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,14 +27,10 @@ export function JoinScreen() {
     if (!n) { setError('Pick a name so your teammates know who you are.'); return; }
     patchMe({ name: n, avatar });
     persistProfile();
-    set({ phase: 'connecting' });
     setError('');
     try {
-      startRTC();
-      await connect();
-      void media.initMic();
+      await enterOffice();
     } catch (err) {
-      set({ phase: 'join' });
       setError((err as Error).message);
     }
   };

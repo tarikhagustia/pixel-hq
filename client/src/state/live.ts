@@ -11,8 +11,20 @@ export interface LiveBody {
   animT: number;
 }
 
-export const local: LiveBody = { x: SPAWN.x, y: SPAWN.y, tx: SPAWN.x, ty: SPAWN.y, dir: 'up', moving: false, seat: null, animT: 0 };
+const POS_KEY = 'pixelhq:lastpos';
+const lastPos = (() => {
+  try { return JSON.parse(localStorage.getItem(POS_KEY) ?? 'null') as { x: number; y: number } | null; }
+  catch { return null; }
+})();
+const startX = lastPos?.x ?? SPAWN.x;
+const startY = lastPos?.y ?? SPAWN.y;
+
+export const local: LiveBody = { x: startX, y: startY, tx: startX, ty: startY, dir: 'up', moving: false, seat: null, animT: 0 };
 export const remotes = new Map<string, LiveBody>();
+
+export function persistPosition() {
+  try { localStorage.setItem(POS_KEY, JSON.stringify({ x: local.x, y: local.y })); } catch { /* private mode */ }
+}
 
 export interface Bubble { text: string; until: number; kind: 'chat' | 'emote' }
 export const bubbles = new Map<string, Bubble>(); // keyed by player id ('self' for local)

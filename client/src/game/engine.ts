@@ -1,7 +1,7 @@
 // The game loop: local movement & collision, remote interpolation, camera and rendering.
 import { EMOTES, TILE, type Dir, type PlayerState } from '../../../shared/protocol';
 import { send } from '../net/socket';
-import { bubbles, local, remotes, type LiveBody } from '../state/live';
+import { bubbles, local, persistPosition, remotes, type LiveBody } from '../state/live';
 import { get, patchMe, set } from '../state/store';
 import { COL, FH, FW, frameRect, getSheet } from './art/character';
 import { drawAnim, getSprite, sortY, type AnimEnv } from './art/furniture';
@@ -29,6 +29,7 @@ export class Engine {
   private last = 0;
   private sendAcc = 0;
   private lastSent = '';
+  private posSaveAcc = 0;
   private path: Array<{ x: number; y: number }> = [];
   private pathSeat: string | null = null;
   private preSit: { x: number; y: number } | null = null;
@@ -44,6 +45,7 @@ export class Engine {
     initInput();
     canvas.addEventListener('click', this.onClick);
     window.addEventListener('resize', this.resize);
+    window.addEventListener('pagehide', persistPosition);
     this.resize();
     this.cam.x = local.x; this.cam.y = local.y;
   }
@@ -64,6 +66,7 @@ export class Engine {
   stop() {
     cancelAnimationFrame(this.raf);
     window.removeEventListener('resize', this.resize);
+    window.removeEventListener('pagehide', persistPosition);
     this.canvas.removeEventListener('click', this.onClick);
   }
 
@@ -144,6 +147,10 @@ export class Engine {
       patchMe({ zone: z.id, inMeeting });
       send({ t: 'presence', p: { zone: z.id, inMeeting } });
     }
+
+    // periodically remember where we are, so a refresh can put us back here
+    this.posSaveAcc += dt;
+    if (this.posSaveAcc >= 2) { this.posSaveAcc = 0; persistPosition(); }
 
     // network
     this.sendAcc += dt;

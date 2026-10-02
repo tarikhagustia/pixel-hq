@@ -49,7 +49,7 @@ const saved = (() => {
 })();
 
 export const useStore = create<State>(() => ({
-  phase: 'join',
+  phase: saved?.name ? 'connecting' : 'join',
   selfId: null,
   me: {
     name: saved?.name ?? '',
