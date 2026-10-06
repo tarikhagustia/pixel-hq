@@ -2,10 +2,10 @@
 import { TILE, type Dir } from '../../../shared/protocol';
 
 export const MAP_W = 46;
-export const MAP_H = 32;
+export const MAP_H = 50;
 
 export type Floor =
-  | 'void' | 'wood' | 'woodWarm' | 'carpetBlue' | 'checker' | 'stone' | 'carpetGreen' | 'lightWood' | 'grass' | 'path';
+  | 'void' | 'wood' | 'woodWarm' | 'carpetBlue' | 'checker' | 'stone' | 'carpetGreen' | 'lightWood' | 'grass' | 'path' | 'terracotta';
 export type Wall = 0 | 1 | 2 | 3; // 0 none, 1 cap (top of wall), 2 face (wallpaper), 3 glass panel
 
 export type FurnType =
@@ -13,7 +13,9 @@ export type FurnType =
   | 'bookshelf' | 'fireplace' | 'counter' | 'coffeeMachine' | 'microwave' | 'sink' | 'fridge' | 'waterCooler'
   | 'vending' | 'roundTable' | 'stool' | 'pingpong' | 'arcade' | 'foosball' | 'tvStand' | 'beanbag' | 'doormat'
   | 'coatRack' | 'bench' | 'serverRack' | 'printer' | 'whiteboard' | 'window' | 'clock' | 'poster' | 'wallTv'
-  | 'lamp' | 'sign' | 'mugs' | 'boardStand';
+  | 'lamp' | 'sign' | 'mugs' | 'boardStand'
+  | 'tree' | 'fountain' | 'flowerBed' | 'picnicTable' | 'lampPost' | 'parasol' | 'pastryCase' | 'register'
+  | 'chalkboard' | 'aframe' | 'scooterRack';
 
 export interface Furniture {
   id: string;
@@ -52,11 +54,14 @@ export const ZONES: Zone[] = [
   { id: 'coffee', name: 'Coffee Bar', icon: '☕', x: 15, y: 14, w: 15, h: 8 },
   { id: 'entrance', name: 'Entrance', icon: '🚪', x: 15, y: 22, w: 15, h: 6 },
   { id: 'rec', name: 'Game Corner', icon: '🎮', x: 30, y: 14, w: 15, h: 14 },
-  { id: 'outside', name: 'Garden Path', icon: '🌿', x: 0, y: 28, w: 46, h: 4 },
+  { id: 'garden', name: 'Garden', icon: '🌷', x: 0, y: 33, w: 22, h: 17 },
+  { id: 'cafe', name: 'Coffee Shop', icon: '🥐', x: 27, y: 33, w: 18, h: 15 },
+  { id: 'outside', name: 'Garden Path', icon: '🌿', x: 0, y: 28, w: 46, h: 22 }, // catch-all for the rest of outdoors
 ];
 
 export const DOOR = { x: 22, y: 28, w: 2 }; // front door gap in the bottom wall
 export const MEETING_DOOR = { x: 25, y: 12, w: 2 };
+export const CAFE = { x: 27, y: 33, w: 18, h: 15, doorY: 40 }; // café building incl. its walls; door on the west wall
 export const SPAWN = { x: (DOOR.x + 1) * TILE, y: 26 * TILE + 8 };
 
 export interface OfficeMap {
@@ -102,9 +107,12 @@ export function buildMap(): OfficeMap {
   fillFloor(15, 14, 15, 8, 'checker'); // coffee
   fillFloor(15, 22, 15, 6, 'stone'); // entrance
   fillFloor(30, 14, 15, 14, 'carpetGreen'); // rec
-  fillFloor(0, 29, MAP_W, 3, 'grass');
-  fillFloor(DOOR.x, 28, 2, 4, 'path');
-  fillFloor(DOOR.x - 1, 30, 4, 2, 'path');
+  fillFloor(0, 29, MAP_W, MAP_H - 29, 'grass');
+  fillFloor(1, 31, MAP_W - 2, 2, 'path'); // main garden path
+  fillFloor(DOOR.x, 28, 2, MAP_H - 30, 'path'); // from the front door south
+  fillFloor(DOOR.x + 2, CAFE.doorY, CAFE.x - DOOR.x - 2, 2, 'path'); // to the café door
+  fillFloor(7, 36, 7, 7, 'stone'); // fountain plaza
+  fillFloor(CAFE.x, CAFE.y, CAFE.w, CAFE.h, 'terracotta');
 
   // ---------------------------------------------------------------- walls
   for (let x = 0; x < MAP_W; x++) { wall[0][x] = 1; wall[1][x] = 2; wall[2][x] = 2; }
@@ -120,6 +128,14 @@ export function buildMap(): OfficeMap {
   wall[13][20] = 1; wall[13][31] = 1;
   floor[12][MEETING_DOOR.x] = floor[12][MEETING_DOOR.x + 1] = 'carpetBlue';
   floor[13][MEETING_DOOR.x] = floor[13][MEETING_DOOR.x + 1] = 'carpetBlue';
+  // café: cap ring + two rows of wall face on the north side, door gap in the west wall
+  {
+    const { x, y, w, h, doorY } = CAFE;
+    for (let i = x; i < x + w; i++) { wall[y][i] = 1; wall[y + h - 1][i] = 1; }
+    for (let j = y; j < y + h; j++) { wall[j][x] = 1; wall[j][x + w - 1] = 1; }
+    for (let i = x + 1; i < x + w - 1; i++) { wall[y + 1][i] = 2; wall[y + 2][i] = 2; }
+    wall[doorY][x] = wall[doorY + 1][x] = 0;
+  }
 
   // ---------------------------------------------------------------- wall decor
   const wallDeco = (type: FurnType, x: number, w: number, variant = 0, y = 1, h = 2) =>
@@ -245,11 +261,74 @@ export function buildMap(): OfficeMap {
   add('plant', 30, 27, 1, 1, { variant: 2 });
   add('lamp', 43, 22, 1, 1);
 
+  add('scooterRack', 17, 26, 2, 1);
+
   // ---------------------------------------------------------------- outside decor
   for (let x = 2; x < MAP_W - 2; x += 3) {
     if (Math.abs(x - DOOR.x) < 3) continue;
     add('plant', x, 29, 1, 1, { variant: 3 + (x % 2) });
   }
+  add('scooterRack', 19, 29, 2, 1);
+
+  // ---------------------------------------------------------------- garden
+  add('fountain', 9, 38, 3, 3);
+  add('bench', 9, 36, 2, 1, { solid: false, seat: 'g-bench-n0' });
+  add('bench', 9, 42, 2, 1, { solid: false, seat: 'g-bench-s0' });
+  [9, 10].forEach((x, i) => {
+    seats.push({ id: `g-bench-n${i}`, x: x * TILE + 8, y: 36 * TILE + 12, facing: 'down', kind: 'bench', label: 'Garden bench' });
+    seats.push({ id: `g-bench-s${i}`, x: x * TILE + 8, y: 42 * TILE + 12, facing: 'up', kind: 'bench', label: 'Garden bench' });
+  });
+  add('lampPost', 7, 36, 1, 1);
+  add('lampPost', 13, 42, 1, 1);
+  add('picnicTable', 15, 39, 3, 2);
+  [15, 17].forEach((x, i) => {
+    seat(`picnic-n${i}`, x, 38, 'down', 'bench', 'Picnic table', 'bench');
+    seat(`picnic-s${i}`, x, 41, 'up', 'bench', 'Picnic table', 'bench');
+  });
+  add('flowerBed', 2, 35, 3, 1, { variant: 0 });
+  add('flowerBed', 16, 35, 3, 1, { variant: 1 });
+  add('flowerBed', 2, 46, 3, 1, { variant: 2 });
+  add('flowerBed', 16, 46, 3, 1, { variant: 0 });
+  add('tree', 19, 35, 2, 1, { variant: 0 });
+  add('tree', 3, 39, 2, 1, { variant: 1 });
+  add('tree', 4, 43, 2, 1, { variant: 0 });
+  add('tree', 18, 44, 2, 1, { variant: 1 });
+  add('tree', 11, 47, 2, 1, { variant: 0 });
+
+  // ---------------------------------------------------------------- coffee shop
+  wallDeco('chalkboard', 30, 3, 0, CAFE.y + 1);
+  wallDeco('window', 36, 2, 0, CAFE.y + 1);
+  wallDeco('window', 40, 2, 0, CAFE.y + 1);
+  add('counter', 29, 36, 5, 1);
+  add('coffeeMachine', 29, 36, 1, 1, { solid: false });
+  add('mugs', 30, 36, 1, 1, { solid: false });
+  add('register', 32, 36, 1, 1, { solid: false });
+  add('pastryCase', 34, 36, 2, 1);
+  add('plant', 28, 36, 1, 1, { variant: 0 });
+  add('bookshelf', 43, 36, 1, 2, { variant: 1 });
+  [[31, 40], [36, 40], [31, 44], [36, 44]].forEach(([x, y], i) => {
+    add('roundTable', x, y, 1, 1, { variant: i % 2 });
+    seat(`cafe-${i}w`, x - 1, y, 'right', 'stool', 'Café stool', 'stool');
+    seat(`cafe-${i}e`, x + 1, y, 'left', 'stool', 'Café stool', 'stool');
+  });
+  add('rug', 39, 39, 5, 7, { layer: 'floor', solid: false, variant: 1 });
+  add('sofa', 40, 40, 3, 1, { facing: 'down' });
+  add('sofa', 40, 45, 3, 1, { facing: 'up' });
+  [40, 41, 42].forEach((x, i) => {
+    seats.push({ id: `cafe-sofa-n${i}`, x: x * TILE + 8, y: 40 * TILE + 13, facing: 'down', kind: 'sofa', label: 'Café sofa' });
+    seats.push({ id: `cafe-sofa-s${i}`, x: x * TILE + 8, y: 45 * TILE + 13, facing: 'up', kind: 'sofa', label: 'Café sofa' });
+  });
+  add('coffeeTable', 40, 42, 3, 2);
+  add('lamp', 43, 39, 1, 1);
+  add('plant', 28, 46, 1, 1, { variant: 2 });
+  add('plant', 38, 46, 1, 1, { variant: 1 });
+  // patio
+  [35, 45].forEach((y, i) => {
+    add('parasol', 25, y, 1, 1, { variant: i });
+    seat(`patio-${i}w`, 24, y, 'right', 'stool', 'Patio stool', 'stool');
+    seat(`patio-${i}e`, 26, y, 'left', 'stool', 'Patio stool', 'stool');
+  });
+  add('aframe', 26, 38, 1, 1);
 
   // ---------------------------------------------------------------- collision grid
   const solid = new Uint8Array(MAP_W * MAP_H);
@@ -264,6 +343,7 @@ export function buildMap(): OfficeMap {
   }
   // outside edges
   for (let x = 0; x < MAP_W; x++) solid[(MAP_H - 1) * MAP_W + x] = 1;
+  for (let y = 29; y < MAP_H; y++) { solid[y * MAP_W] = 1; solid[y * MAP_W + MAP_W - 1] = 1; }
 
   return { floor, wall, furniture, seats, solid };
 }

@@ -73,17 +73,17 @@ function handle(msg: ServerMsg) {
     case 'welcome': {
       iceServers = msg.iceServers;
       const players = Object.fromEntries(msg.players.map((p) => [p.id, p]));
-      for (const p of msg.players) remotes.set(p.id, { x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir, moving: p.moving, seat: p.seat, animT: 0 });
+      for (const p of msg.players) remotes.set(p.id, { x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir, moving: p.moving, seat: p.seat, ride: !!p.ride, animT: 0 });
       set({ selfId: msg.selfId, players, chat: msg.history, phase: 'office' });
       // re-announce presence (useful after reconnects)
       const { me } = get();
       send({ t: 'presence', p: { status: me.status, mic: me.mic, cam: me.cam, screen: me.screen, inMeeting: me.inMeeting, zone: me.zone } });
-      send({ t: 'move', m: { x: local.x, y: local.y, dir: local.dir, moving: false, seat: local.seat } });
+      send({ t: 'move', m: { x: local.x, y: local.y, dir: local.dir, moving: false, seat: local.seat, ride: local.ride } });
       break;
     }
     case 'joined': {
       const p = msg.player;
-      remotes.set(p.id, { x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir, moving: p.moving, seat: p.seat, animT: 0 });
+      remotes.set(p.id, { x: p.x, y: p.y, tx: p.x, ty: p.y, dir: p.dir, moving: p.moving, seat: p.seat, ride: !!p.ride, animT: 0 });
       set((s) => ({ players: { ...s.players, [p.id]: p } }));
       toast(`${p.name} walked into the office`);
       break;
@@ -100,10 +100,10 @@ function handle(msg: ServerMsg) {
       break;
     }
     case 'snapshot': {
-      for (const [id, x, y, dir, moving, seat] of msg.s) {
+      for (const [id, x, y, dir, moving, seat, ride] of msg.s) {
         const r = remotes.get(id);
         if (!r) continue;
-        r.tx = x; r.ty = y; r.dir = dir; r.moving = !!moving; r.seat = seat;
+        r.tx = x; r.ty = y; r.dir = dir; r.moving = !!moving; r.seat = seat; r.ride = !!ride;
         // snap if we fell far behind (teleport / seat)
         if (Math.hypot(r.x - x, r.y - y) > 64) { r.x = x; r.y = y; }
       }
@@ -121,7 +121,8 @@ function handle(msg: ServerMsg) {
       const m = msg.msg;
       const { selfId, ui } = get();
       const mine = m.from === selfId;
-      if (m.channel === 'nearby') addBubble(mine ? 'self' : m.from, m.text);
+      // speech bubble over the sender's head for public chat (DMs stay private)
+      if (m.channel !== 'dm') addBubble(mine ? 'self' : m.from, m.text);
       set((s) => {
         const unread = { ...s.unread, dm: { ...s.unread.dm } };
         const chatVisible = s.ui.chat;

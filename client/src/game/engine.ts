@@ -2,8 +2,9 @@
 import { EMOTES, TILE, type Dir, type PlayerState } from '../../../shared/protocol';
 import { send } from '../net/socket';
 import { bubbles, local, persistPosition, remotes, type LiveBody } from '../state/live';
-import { get, patchMe, set } from '../state/store';
+import { get, patchMe, persistProfile, set } from '../state/store';
 import { COL, FH, FW, frameRect, getSheet } from './art/character';
+import { AX, AY, getRideSprite } from './art/scooter';
 import { drawAnim, getSprite, sortY, type AnimEnv } from './art/furniture';
 import { paintStatic } from './art/tiles';
 import { consume, endFrame, initInput, isDown } from './input';
@@ -13,6 +14,8 @@ import { footstep, unlockAudio, type Surface } from './sfx';
 
 const WALK = 78; // px / s
 const RUN = 128;
+const RIDE = 150; // on a scooter
+const RIDE_BOOST = 205;
 const SEND_HZ = 15;
 const STEP_RADIUS = TILE * 7; // how far away other people's footsteps are audible
 export const VOICE_RADIUS = TILE * 6;
@@ -25,6 +28,8 @@ export class Engine {
   private staticLayer: HTMLCanvasElement;
   private seatById = new Map<string, Seat>();
   private zoom = 3;
+  private baseZoom = 3; // auto-fit zoom for this window; the user's zoom is an offset from it
+  private wheelAcc = 0;
   private dpr = 1;
   private cam = { x: 0, y: 0 };
   private raf = 0;
@@ -39,6 +44,7 @@ export class Engine {
   private catSprites: HTMLCanvasElement[];
   private lastStep = new Map<string, number>(); // body id -> last footstep index
   private rugs: OfficeMap['furniture'];
+  private racks: OfficeMap['furniture'];
   private motes = Array.from({ length: 18 }, (_, i) => ({ x: Math.random(), y: Math.random(), s: 0.2 + Math.random() * 0.5, w: i }));
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -47,10 +53,12 @@ export class Engine {
     for (const s of this.map.seats) this.seatById.set(s.id, s);
     this.catSprites = [paintCat(0), paintCat(1), paintCat(2)];
     this.rugs = this.map.furniture.filter((f) => f.type === 'rug' || f.type === 'doormat');
+    this.racks = this.map.furniture.filter((f) => f.type === 'scooterRack');
     initInput();
     window.addEventListener('keydown', unlockAudio);
     window.addEventListener('pointerdown', unlockAudio);
     canvas.addEventListener('click', this.onClick);
+    canvas.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('resize', this.resize);
     window.addEventListener('pagehide', persistPosition);
     this.resize();
@@ -75,6 +83,7 @@ export class Engine {
     window.removeEventListener('resize', this.resize);
     window.removeEventListener('pagehide', persistPosition);
     this.canvas.removeEventListener('click', this.onClick);
+    this.canvas.removeEventListener('wheel', this.onWheel);
   }
 
   // ------------------------------------------------------------ public actions
@@ -123,9 +132,12 @@ export class Engine {
     }
 
     const nearSeat = this.nearestFreeSeat();
+    const nearRack = !local.seat && !local.ride && !nearSeat && this.nearRack();
     if (consume('e') || consume(' ')) {
       if (local.seat) this.standUp();
+      else if (local.ride) this.setRide(false);
       else if (nearSeat) this.sit(nearSeat.id);
+      else if (nearRack) this.setRide(true);
     }
 
     if ((ix || iy) && local.seat) this.standUp();
@@ -133,18 +145,22 @@ export class Engine {
     const moving = !!(ix || iy) && !local.seat;
     if (moving) {
       const len = Math.hypot(ix, iy);
-      const sp = (isDown('shift') ? RUN : WALK) * dt;
+      const boost = isDown('shift');
+      const sp = (local.ride ? (boost ? RIDE_BOOST : RIDE) : boost ? RUN : WALK) * dt;
       const vx = (ix / len) * sp, vy = (iy / len) * sp;
       if (Math.abs(ix) > Math.abs(iy) + 0.01) local.dir = ix > 0 ? 'right' : 'left';
       else if (iy) local.dir = iy > 0 ? 'down' : 'up';
       if (!this.collides(local.x + vx, local.y)) local.x += vx;
       if (!this.collides(local.x, local.y + vy)) local.y += vy;
-      local.animT += dt * (isDown('shift') ? 1.6 : 1);
+      local.animT += local.ride ? 0 : dt * (boost ? 1.6 : 1);
     } else local.animT = 0;
     local.moving = moving;
 
     // hint text
-    const hint = local.seat ? 'E — stand up' : nearSeat ? `E — sit (${nearSeat.label})` : null;
+    const hint = local.seat ? 'E — stand up'
+      : local.ride ? 'E — hop off the scooter'
+      : nearSeat ? `E — sit (${nearSeat.label})`
+      : nearRack ? 'E — grab a scooter 🛴' : null;
     if (hint !== st.hint) set({ hint });
 
     // zone tracking (meeting room is a private audio space)
@@ -190,7 +206,7 @@ export class Engine {
     const vol = get().settings.sfxVolume;
     const bodies: Array<[string, LiveBody]> = [['self', local], ...remotes];
     for (const [id, b] of bodies) {
-      if (!b.moving) { this.lastStep.delete(id); continue; }
+      if (!b.moving || b.ride) { this.lastStep.delete(id); continue; }
       const idx = Math.floor(b.animT * 4);
       if (this.lastStep.get(id) === idx) continue;
       this.lastStep.set(id, idx);
@@ -211,7 +227,7 @@ export class Engine {
     if (this.rugs.some((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.h)) return 'soft';
     switch (this.map.floor[ty]?.[tx]) {
       case 'wood': case 'woodWarm': case 'lightWood': return 'wood';
-      case 'checker': case 'stone': return 'hard';
+      case 'checker': case 'stone': case 'terracotta': return 'hard';
       case 'carpetBlue': case 'carpetGreen': return 'soft';
       case 'grass': return 'grass';
       case 'path': return 'gravel';
@@ -220,10 +236,10 @@ export class Engine {
   }
 
   private flushMove(force: boolean) {
-    const key = `${local.x.toFixed(1)},${local.y.toFixed(1)},${local.dir},${local.moving},${local.seat}`;
+    const key = `${local.x.toFixed(1)},${local.y.toFixed(1)},${local.dir},${local.moving},${local.seat},${local.ride}`;
     if (!force && key === this.lastSent) return;
     this.lastSent = key;
-    send({ t: 'move', m: { x: local.x, y: local.y, dir: local.dir, moving: local.moving, seat: local.seat } });
+    send({ t: 'move', m: { x: local.x, y: local.y, dir: local.dir, moving: local.moving, seat: local.seat, ride: local.ride } });
   }
 
   private collides(x: number, y: number) {
@@ -254,11 +270,20 @@ export class Engine {
     return best;
   }
 
+  private nearRack() {
+    return this.racks.some((f) => Math.hypot(f.x * TILE + f.w * TILE / 2 - local.x, (f.y + 1) * TILE - local.y) < 28);
+  }
+
+  private setRide(on: boolean) {
+    local.ride = on;
+    this.flushMove(true);
+  }
+
   private sit(id: string) {
     const s = this.seatById.get(id);
     if (!s || this.occupiedSeats().has(id)) return;
     this.preSit = { x: local.x, y: local.y };
-    local.seat = id; local.x = s.x; local.y = s.y; local.dir = s.facing; local.moving = false;
+    local.seat = id; local.ride = false; local.x = s.x; local.y = s.y; local.dir = s.facing; local.moving = false;
     this.flushMove(true);
     if (s.kind === 'desk' || s.kind === 'shared') {
       const st = get();
@@ -378,8 +403,33 @@ export class Engine {
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
     const target = Math.min(this.canvas.width / (TILE * 24), this.canvas.height / (TILE * 15));
-    this.zoom = Math.max(2, Math.floor(target));
+    this.baseZoom = Math.max(2, Math.floor(target));
+    this.applyZoom();
     this.ctx.imageSmoothingEnabled = false;
+  };
+
+  // zoom stays an integer number of device pixels per art pixel, so the pixel art stays crisp
+  private zoomRange() { return { min: Math.max(1, Math.round(this.dpr)), max: Math.round(8 * this.dpr) }; }
+  private applyZoom() {
+    const { min, max } = this.zoomRange();
+    this.zoom = Math.max(min, Math.min(max, this.baseZoom + get().settings.zoom));
+  }
+
+  /** Zoom in (+1) / out (-1) one step, or reset to the auto-fit level with 0. */
+  zoomBy(step: number) {
+    const { min, max } = this.zoomRange();
+    const z = step === 0 ? this.baseZoom : Math.max(min, Math.min(max, this.zoom + step));
+    set((s) => ({ settings: { ...s.settings, zoom: z - this.baseZoom } }));
+    persistProfile();
+    this.applyZoom();
+  }
+
+  private onWheel = (e: WheelEvent) => {
+    e.preventDefault(); // also swallows trackpad pinch (ctrl+wheel) so the page itself doesn't zoom
+    this.wheelAcc += e.deltaY * (e.ctrlKey ? 4 : 1);
+    if (Math.abs(this.wheelAcc) < 60) return;
+    this.zoomBy(this.wheelAcc < 0 ? 1 : -1);
+    this.wheelAcc = 0;
   };
 
   private viewOrigin() {
@@ -467,7 +517,7 @@ export class Engine {
     const toScreen = (x: number, y: number) => ({ x: (x - ox) * Z, y: (y - oy) * Z });
     const overlays: Array<() => void> = [];
     const label = (b: LiveBody, p: Partial<PlayerState> & { name: string }, id: string, isSelf: boolean) => {
-      const sitOff = b.seat ? 2 : 0;
+      const sitOff = b.seat ? 2 : b.ride ? -2 : 0;
       const s = toScreen(b.x, b.y - 23 + sitOff);
       overlays.push(() => this.drawLabel(ctx, s.x, s.y, p, isSelf, voice.has(id), t, st.settings.showNames, st.selected === id));
       const bub = bubbles.get(id);
@@ -498,7 +548,11 @@ export class Engine {
     }
     let col: number;
     let top = y - 20;
-    if (b.seat) {
+    const ride = b.ride && !b.seat ? getRideSprite(b.dir, p.avatar.shirt) : null;
+    if (ride) {
+      col = COL.walk; // standing on the deck
+      top = y - 22;
+    } else if (b.seat) {
       const typing = b.dir === 'up';
       col = COL.sit + (typing && Math.floor(t * 6 + x) % 2 ? 1 : 0);
       top = b.dir === 'up' ? y - 23 : y - 19;
@@ -509,10 +563,15 @@ export class Engine {
       // idle: occasional blink
       col = (Math.floor(t * 10 + x * 0.37) % 40 === 0) && b.dir !== 'up' ? COL.blink : COL.walk;
     }
-    const bob = b.moving && (col === 1 || col === 3) ? -1 : 0;
+    const bob = b.moving && !ride && (col === 1 || col === 3) ? -1 : 0;
     const { sx, sy } = frameRect(b.dir, col);
     ctx.globalAlpha = p.status === 'away' ? 0.7 : 1;
+    if (ride) {
+      if (ride.frontFirst) ctx.drawImage(ride.front, x - AX, y - AY);
+      ctx.drawImage(ride.back, x - AX, y - AY);
+    }
     ctx.drawImage(sheet, sx, sy, FW, FH, x - 8, top + bob, FW, FH);
+    if (ride && !ride.frontFirst) ctx.drawImage(ride.front, x - AX, y - AY);
     ctx.globalAlpha = 1;
   }
 
@@ -591,7 +650,7 @@ export class Engine {
     ctx.fillStyle = warm ? 'rgba(255,190,120,0.10)' : 'rgba(255,245,200,0.11)';
     for (const f of this.map.furniture) {
       if (f.type !== 'window') continue;
-      const x = f.x * TILE, y = 3 * TILE;
+      const x = f.x * TILE, y = (f.y + f.h) * TILE; // just below the wall it's set in
       ctx.beginPath();
       ctx.moveTo(x + 2, y); ctx.lineTo(x + 30, y); ctx.lineTo(x + 44, y + 52); ctx.lineTo(x + 14, y + 52); ctx.closePath();
       ctx.fill();

@@ -1,6 +1,6 @@
 // Bakes floors, walls and flat decor into one static canvas.
 import { TILE } from '../../../../shared/protocol';
-import { MAP_H, MAP_W, type Floor, type OfficeMap } from '../map';
+import { CAFE, MAP_H, MAP_W, type Floor, type OfficeMap } from '../map';
 import { hash, makeCanvas, rect, px, shade, type Ctx } from '../pixel';
 import { P } from './palette';
 import { getSprite } from './furniture';
@@ -74,6 +74,16 @@ function paintFloor(ctx: Ctx, f: Floor, tx: number, ty: number) {
       }
       break;
     }
+    case 'terracotta': {
+      // warm café tiles, 8px squares with light grout
+      rect(ctx, x, y, T, T, '#e9d8c0');
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+        const c = shade('#c97e57', (n(i, j) - 0.5) * 0.14);
+        rect(ctx, x + i * 8, y + j * 8, 7, 7, c);
+        rect(ctx, x + i * 8, y + j * 8, 7, 1, shade(c, 0.12));
+      }
+      break;
+    }
     default:
       rect(ctx, x, y, T, T, '#1d1714');
   }
@@ -97,9 +107,10 @@ export function paintStatic(map: OfficeMap): HTMLCanvasElement {
     const X = x * T, Y = y * T;
     const glass = isGlassRoom(x, y);
     if (w === 2) {
-      // wallpaper face with wainscot
-      rect(ctx, X, Y, T, T, '#efdcb8');
-      for (let i = 0; i < T; i += 4) rect(ctx, X + i, Y, 2, T, '#e6cfa6');
+      // wallpaper face with wainscot (sage green in the café, cream in the office)
+      const cafe = y >= CAFE.y;
+      rect(ctx, X, Y, T, T, cafe ? '#cfdcc0' : '#efdcb8');
+      for (let i = 0; i < T; i += 4) rect(ctx, X + i, Y, 2, T, cafe ? '#c3d2b2' : '#e6cfa6');
       if (map.wall[y + 1]?.[x] !== 2) {
         rect(ctx, X, Y + 6, T, 10, '#9c6b43');
         rect(ctx, X, Y + 6, T, 1, '#b8845a');

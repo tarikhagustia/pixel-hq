@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { EMOTES, type Status } from '../../../shared/protocol';
 import { zoneById } from '../game/map';
 import { set, useStore } from '../state/store';
-import { emote, leaveMeeting, openDM, setStatus, toggleCam, toggleMic, toggleMusic, toggleScreen, walkToPlayer } from './actions';
+import { emote, leaveMeeting, openDM, setStatus, toggleCam, toggleMic, toggleMusic, toggleScreen, walkToPlayer, zoomBy } from './actions';
 import { statusOf } from './PeoplePanel';
 import { Portrait } from './Portrait';
 
@@ -45,6 +45,11 @@ export function TopRight() {
   return (
     <div className="top-right">
       <button className="panel pill" onClick={() => set((s) => ({ ui: { ...s.ui, people: !s.ui.people } }))} title="Participants">👥 {count}</button>
+      <div className="panel pill zoom-ctl">
+        <button onClick={() => zoomBy(-1)} title="Zoom out (−)" aria-label="Zoom out">−</button>
+        <button onClick={() => zoomBy(0)} title="Reset zoom (0)" aria-label="Reset zoom">⌖</button>
+        <button onClick={() => zoomBy(1)} title="Zoom in (+)" aria-label="Zoom in">+</button>
+      </div>
       <button className="panel pill" onClick={() => set((s) => ({ ui: { ...s.ui, settings: true } }))} title="Settings">⚙️</button>
     </div>
   );

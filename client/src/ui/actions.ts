@@ -63,6 +63,7 @@ export function updateProfile(name: string, avatar: Avatar) {
   if (get().phase === 'office') send({ t: 'profile', name, avatar });
 }
 
+export function zoomBy(step: number) { engine?.zoomBy(step); }
 export function emote(e: string) { engine?.emote(e); }
 export function walkToPlayer(id: string) { engine?.goTo(id); set({ selected: null }); }
 

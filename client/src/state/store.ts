@@ -22,6 +22,7 @@ export interface Settings {
   sfxVolume: number; // 0..1 footsteps & other sound effects
   music: boolean; // lofi background music on/off
   musicVolume: number; // 0..1
+  zoom: number; // user zoom steps relative to the auto-fit level
   micId: string;
   camId: string;
   showNames: boolean;
@@ -67,7 +68,7 @@ export const useStore = create<State>(() => ({
   selected: null,
   hint: null,
   toasts: [],
-  settings: { volume: 1, sfxVolume: 1, music: true, musicVolume: 0.4, micId: '', camId: '', showNames: true, showRange: true, ...(saved?.settings ?? {}) },
+  settings: { volume: 1, sfxVolume: 1, music: true, musicVolume: 0.4, zoom: 0, micId: '', camId: '', showNames: true, showRange: true, ...(saved?.settings ?? {}) },
   micAvailable: false,
 }));
 

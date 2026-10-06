@@ -8,6 +8,7 @@ export interface LiveBody {
   dir: Dir;
   moving: boolean;
   seat: string | null;
+  ride: boolean; // on a scooter
   animT: number;
 }
 
@@ -19,7 +20,7 @@ const lastPos = (() => {
 const startX = lastPos?.x ?? SPAWN.x;
 const startY = lastPos?.y ?? SPAWN.y;
 
-export const local: LiveBody = { x: startX, y: startY, tx: startX, ty: startY, dir: 'up', moving: false, seat: null, animT: 0 };
+export const local: LiveBody = { x: startX, y: startY, tx: startX, ty: startY, dir: 'up', moving: false, seat: null, ride: false, animT: 0 };
 export const remotes = new Map<string, LiveBody>();
 
 export function persistPosition() {

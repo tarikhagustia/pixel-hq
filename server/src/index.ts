@@ -98,7 +98,7 @@ function handle(c: Client, msg: ClientMsg) {
       name: clean(msg.name, MAX_NAME_LEN) || 'Guest',
       avatar: sanitizeAvatar(msg.avatar),
       x: num(msg.x, 0, 5000, 300), y: num(msg.y, 0, 5000, 300),
-      dir: 'down', moving: false, seat: null,
+      dir: 'down', moving: false, seat: null, ride: false,
       status: 'available', mic: false, cam: false, screen: false, speaking: false, inMeeting: false, zone: 'entrance',
     };
     send(c, {
@@ -121,6 +121,7 @@ function handle(c: Client, msg: ClientMsg) {
       if (['up', 'down', 'left', 'right'].includes(m.dir)) s.dir = m.dir;
       s.moving = !!m.moving;
       s.seat = typeof m.seat === 'string' ? m.seat.slice(0, 32) : null;
+      s.ride = !!m.ride && !s.seat;
       c.dirty = true;
       break;
     }
@@ -209,7 +210,7 @@ setInterval(() => {
   for (const c of clients.values()) {
     if (c.state && c.dirty) {
       const p = c.state;
-      s.push([p.id, Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, p.dir, p.moving ? 1 : 0, p.seat]);
+      s.push([p.id, Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10, p.dir, p.moving ? 1 : 0, p.seat, p.ride ? 1 : 0]);
       c.dirty = false;
     }
   }

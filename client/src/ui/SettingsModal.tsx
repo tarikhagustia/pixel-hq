@@ -72,6 +72,7 @@ export function SettingsModal() {
               <li><kbd>Enter</kbd> chat · <kbd>Esc</kbd> back to the office</li>
               <li><kbd>1</kbd>–<kbd>8</kbd> emotes · click a person for options</li>
               <li><kbd>M</kbd> mute · <kbd>V</kbd> camera · <kbd>B</kbd> music</li>
+              <li><kbd>+</kbd>/<kbd>−</kbd> or mouse wheel zoom · <kbd>0</kbd> reset zoom</li>
             </ul>
           </section>
         </div>

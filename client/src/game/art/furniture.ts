@@ -4,6 +4,7 @@ import { TILE } from '../../../../shared/protocol';
 import type { Furniture } from '../map';
 import { hash, makeCanvas, outline, px, rect, shade, type Ctx } from '../pixel';
 import { CODE_COLORS, P } from './palette';
+import { paintScooterSide } from './scooter';
 
 const T = TILE;
 
@@ -15,6 +16,8 @@ const UP: Partial<Record<Furniture['type'], number>> = {
   fireplace: 4, counter: 4, coffeeMachine: 10, mugs: 4, microwave: 6, sink: 4, fridge: 8, waterCooler: 12,
   vending: 8, roundTable: 4, stool: 2, pingpong: 4, arcade: 10, foosball: 4, tvStand: 16, beanbag: 3,
   coatRack: 14, bench: 4, serverRack: 10, printer: 4, boardStand: 18, lamp: 18, sign: 8, chair: 6,
+  tree: 38, fountain: 8, flowerBed: 4, picnicTable: 2, lampPost: 30, parasol: 28, pastryCase: 10, register: 6,
+  aframe: 10, scooterRack: 20,
 };
 
 const cache = new Map<string, Sprite>();
@@ -40,7 +43,7 @@ export function sortY(f: Furniture): number {
   const top = f.y * T;
   const isSeatish = f.type === 'chair' || f.type === 'sofa' || f.type === 'armchair' || f.type === 'stool' || f.type === 'beanbag' || f.type === 'bench';
   if (isSeatish) return f.facing === 'up' ? top + f.h * T + 2 : top + 4;
-  if (['coffeeMachine', 'mugs', 'microwave', 'sink'].includes(f.type)) return top + T + 0.5;
+  if (['coffeeMachine', 'mugs', 'microwave', 'sink', 'register'].includes(f.type)) return top + T + 0.5;
   if (f.type === 'sign') return top + 10;
   return top + f.h * T;
 }
@@ -343,6 +346,118 @@ function paint(ctx: Ctx, f: Furniture, W: number, H: number) {
       rect(ctx, 7, 1, 2, 9, P.woodDeep); rect(ctx, 4, 10, 8, 2, P.woodDeep);
       break;
     }
+    case 'tree': {
+      const leaf = v ? '#5c9e45' : '#4f8f3a', light = v ? '#7cc05a' : '#68ab4b', dark = '#3a7230';
+      rect(ctx, 13, -8, 6, 21, '#7a5236'); rect(ctx, 13, -8, 2, 21, '#946645');
+      rect(ctx, 10, 11, 12, 3, '#6b4a2f'); // roots
+      rect(ctx, 4, -32, 24, 24, leaf); rect(ctx, 0, -26, 32, 14, leaf); rect(ctx, 9, -38, 14, 8, leaf);
+      rect(ctx, 2, -12, 28, 3, dark);
+      rect(ctx, 7, -35, 10, 5, light); rect(ctx, 3, -27, 9, 6, light); rect(ctx, 18, -30, 7, 4, light);
+      for (let i = 0; i < 14; i++) {
+        const x = 2 + Math.floor(hash(i, 3, v) * 27), y = -34 + Math.floor(hash(i, 7, v) * 22);
+        px(ctx, x, y, v ? '#f7b6cf' : dark); // blossoms on variant 1
+        if (v) px(ctx, x + 1, y, '#fbd3e2');
+      }
+      break;
+    }
+    case 'fountain': {
+      const stone = '#b9b2a6', stoneD = '#8f887c', water = '#6fb8d9';
+      rect(ctx, 4, 2, W - 8, H - 4, stone); rect(ctx, 0, 8, W, H - 16, stone);
+      rect(ctx, 7, 5, W - 14, H - 12, water); rect(ctx, 3, 11, W - 6, H - 22, water);
+      rect(ctx, 0, H - 10, W, 3, stoneD); rect(ctx, 4, H - 4, W - 8, 2, stoneD);
+      rect(ctx, 4, 2, W - 8, 1, '#d4cec3');
+      // centre column and bowl
+      rect(ctx, 21, 10, 6, 22, stone); rect(ctx, 21, 10, 2, 22, '#d4cec3');
+      rect(ctx, 15, 6, 18, 5, stone); rect(ctx, 16, 5, 16, 2, water); rect(ctx, 15, 10, 18, 1, stoneD);
+      rect(ctx, 22, -6, 4, 12, stone); rect(ctx, 21, -8, 6, 3, stoneD);
+      break;
+    }
+    case 'flowerBed': {
+      const cols = [[P.pink, P.yellow, P.white], ['#e05a4f', P.orange, P.yellow], [P.purple, P.blue, P.white]][v % 3];
+      rect(ctx, 0, 4, W, 10, P.woodMid); rect(ctx, 0, 4, W, 1, P.woodLight); rect(ctx, 0, 12, W, 2, P.woodDark);
+      for (let i = 16; i < W; i += 16) rect(ctx, i, 5, 1, 7, P.woodDark);
+      rect(ctx, 1, 1, W - 2, 4, '#5a3d2a');
+      for (let i = 0; i < W / 4 - 1; i++) {
+        const x = 2 + i * 4, y = -3 + Math.floor(hash(i, v) * 3);
+        rect(ctx, x + 1, y + 2, 1, 3, P.leafDark); px(ctx, x + 2, y + 3, P.leaf);
+        rect(ctx, x, y, 2, 2, cols[i % 3]); px(ctx, x, y, shade(cols[i % 3], 0.3));
+      }
+      break;
+    }
+    case 'picnicTable': {
+      rect(ctx, 0, 2, W, H - 10, '#b5794a'); rect(ctx, 0, 2, W, 1, '#cf9563');
+      for (let y = 6; y < H - 8; y += 5) rect(ctx, 0, y, W, 1, '#94603a');
+      rect(ctx, 0, H - 8, W, 3, P.woodDark);
+      rect(ctx, 3, H - 5, 3, 5, P.woodDeep); rect(ctx, W - 6, H - 5, 3, 5, P.woodDeep);
+      // checked cloth, basket and lemonade
+      rect(ctx, 12, 5, 24, 14, P.white);
+      for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2 === 0) rect(ctx, 12 + i * 4, 5 + j * 4, 4, 3, '#e06a5f');
+      rect(ctx, 19, 7, 9, 6, '#c79a5b'); rect(ctx, 20, 6, 7, 1, '#a87b42'); rect(ctx, 21, 3, 5, 1, '#a87b42');
+      rect(ctx, 6, 8, 3, 4, '#fff0a0'); rect(ctx, 39, 12, 3, 4, '#fff0a0');
+      break;
+    }
+    case 'lampPost': {
+      rect(ctx, 7, -22, 2, 34, P.metalDeep);
+      rect(ctx, 5, 10, 6, 4, P.metalDeep); rect(ctx, 6, 9, 4, 1, P.metalDark);
+      rect(ctx, 3, -30, 10, 2, P.metalDeep);
+      rect(ctx, 4, -28, 8, 7, P.metalDeep); rect(ctx, 5, -27, 6, 5, '#ffe9a8'); rect(ctx, 5, -27, 2, 5, '#fff6d6');
+      rect(ctx, 5, -21, 6, 1, P.metalDark);
+      break;
+    }
+    case 'parasol': {
+      const c = v ? P.teal : '#e05a4f';
+      rect(ctx, 7, -20, 2, 24, P.metal);
+      rect(ctx, 0, -25, 16, 5, P.white);
+      for (let i = 0; i < 16; i += 6) rect(ctx, i, -25, 3, 5, c);
+      rect(ctx, 2, -27, 12, 2, c); rect(ctx, 6, -28, 4, 1, c);
+      for (let i = 0; i < 16; i += 3) px(ctx, i + 1, -20, shade(c, -0.2));
+      rect(ctx, 1, 0, 14, 5, '#efeae0'); rect(ctx, 1, 0, 14, 1, P.white); rect(ctx, 1, 5, 14, 1, '#cfc7b6');
+      rect(ctx, 7, 6, 2, 6, P.metalDark); rect(ctx, 4, 12, 8, 2, P.metalDark);
+      rect(ctx, 3, 1, 3, 3, P.white); px(ctx, 4, 2, '#7a4a2a'); rect(ctx, 10, 1, 3, 2, '#e8b86d');
+      break;
+    }
+    case 'pastryCase': {
+      rect(ctx, 0, 4, W, 12, P.woodMid); rect(ctx, 1, 6, W - 2, 8, P.woodDark);
+      rect(ctx, 0, -10, W, 2, P.woodDark);
+      rect(ctx, 1, -8, W - 2, 12, '#cfe9f2');
+      rect(ctx, 1, -2, W - 2, 1, '#e8f6fa');
+      const treats = ['#e0a050', '#f08fb0', '#8a5a34', '#f6d365', '#e0a050', '#c45a50'];
+      treats.forEach((c, i) => { rect(ctx, 3 + i * 5, -6, 4, 3, c); px(ctx, 4 + i * 5, -6, shade(c, 0.3)); });
+      treats.forEach((c, i) => { rect(ctx, 3 + i * 5, 0, 4, 3, treats[(i + 3) % 6]); });
+      for (let i = 0; i < 4; i++) px(ctx, 4 + i, -7 + i, '#ffffff');
+      break;
+    }
+    case 'register': {
+      rect(ctx, 3, -6, 10, 6, P.metalDeep); rect(ctx, 4, -5, 7, 3, '#7fdbca');
+      rect(ctx, 2, 0, 12, 3, '#55555d'); px(ctx, 12, -4, P.red);
+      break;
+    }
+    case 'aframe': {
+      rect(ctx, 2, -10, 12, 20, P.woodDark); rect(ctx, 3, -9, 10, 17, '#2f3a33');
+      rect(ctx, 5, -7, 6, 1, '#f3efe6'); rect(ctx, 4, -4, 8, 1, '#d8d4cc'); rect(ctx, 4, -1, 6, 1, '#d8d4cc');
+      rect(ctx, 6, 2, 3, 3, P.white); px(ctx, 9, 3, P.white); px(ctx, 7, 3, '#7a4a2a'); px(ctx, 11, 5, P.pink);
+      rect(ctx, 3, 10, 2, 3, P.woodDeep); rect(ctx, 11, 10, 2, 3, P.woodDeep);
+      break;
+    }
+    case 'scooterRack': {
+      // little parking sign + two scooters standing on a dock plate
+      rect(ctx, 1, 12, W - 2, 3, '#6d737d'); rect(ctx, 1, 12, W - 2, 1, '#8a909a');
+      rect(ctx, 1, -12, 2, 24, P.metalDark);
+      rect(ctx, -1, -20, 7, 8, P.blue); rect(ctx, 1, -18, 1, 5, P.white); rect(ctx, 2, -18, 2, 1, P.white); rect(ctx, 2, -16, 2, 1, P.white); px(ctx, 4, -17, P.white);
+      paintScooterSide(ctx, 4, 13, P.teal);
+      paintScooterSide(ctx, 17, 13, P.pink);
+      break;
+    }
+    case 'chalkboard': {
+      rect(ctx, 0, 2, W, 26, P.woodDark); rect(ctx, 2, 4, W - 4, 22, '#2f3a33');
+      rect(ctx, 15, 6, 18, 2, '#f3efe6'); // "MENU"
+      for (let i = 0; i < 4; i++) {
+        rect(ctx, 5, 11 + i * 4, 14 + (i % 2) * 4, 1, '#d8d4cc');
+        rect(ctx, 36, 11 + i * 4, 6, 1, i % 2 ? P.yellow : P.pink);
+        for (let k = 22; k < 34; k += 2) px(ctx, k + (i % 2) * 2, 11 + i * 4, '#7d8a80');
+      }
+      break;
+    }
     // ---- wall-mounted
     case 'window': {
       rect(ctx, 0, 1, W, H - 4, '#6b4a3a');
@@ -516,6 +631,28 @@ export function drawAnim(ctx: Ctx, f: Furniture, env: AnimEnv) {
       break;
     }
     case 'lamp': glow(ctx, X + 8, Y - 10, 34, 'rgba(255,214,140,0.18)'); break;
+    case 'lampPost': {
+      const night = env.hour >= 18 || env.hour < 7;
+      if (night) glow(ctx, X + 8, Y - 24, 48, 'rgba(255,220,150,0.28)');
+      break;
+    }
+    case 'fountain': {
+      // arcing jets from the top spout and rings on the water
+      for (let i = 0; i < 12; i++) {
+        const p = (t * 0.9 + i / 12) % 1;
+        const side = i % 2 ? 1 : -1;
+        const dx = side * (2 + p * 13), dy = -8 - Math.sin(p * Math.PI) * 9 + p * 22;
+        ctx.fillStyle = `rgba(220,245,255,${0.9 - p * 0.5})`;
+        ctx.fillRect(Math.round(X + 24 + dx), Math.round(Y + dy), 1, 2);
+      }
+      ctx.fillStyle = 'rgba(230,248,255,0.5)';
+      for (let k = 0; k < 2; k++) {
+        const r = ((t * 0.5 + k / 2) % 1) * 14;
+        ctx.fillRect(Math.round(X + 24 - 6 - r), Math.round(Y + 30 + k * 4), 2, 1);
+        ctx.fillRect(Math.round(X + 24 + 5 + r), Math.round(Y + 30 + k * 4), 2, 1);
+      }
+      break;
+    }
     case 'window': {
       const sky = skyColor(env.hour);
       ctx.fillStyle = sky; ctx.fillRect(X + 2, Y + 3, 13, 23); ctx.fillRect(X + 17, Y + 3, 13, 23);

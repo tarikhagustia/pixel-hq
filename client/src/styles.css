@@ -110,6 +110,9 @@ input[type='range'] { padding: 0; accent-color: var(--accent); }
 .top-right { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; }
 .pill { padding: 7px 12px; font-size: 16px; font-weight: 600; }
 .pill:hover { filter: brightness(1.05); }
+.zoom-ctl { display: flex; align-items: center; gap: 2px; padding: 3px 4px; }
+.zoom-ctl button { background: none; border: 0; color: inherit; font: inherit; font-size: 18px; line-height: 1; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }
+.zoom-ctl button:hover { background: rgba(0, 0, 0, 0.08); }
 
 .player-card { display: flex; align-items: center; gap: 10px; position: relative; padding: 8px 12px 8px 8px; }
 .pc-portrait { background: #a7d3e0; border: 2px solid var(--outline); border-radius: 4px; line-height: 0; }

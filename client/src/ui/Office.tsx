@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Engine } from '../game/engine';
 import { initMusic } from '../game/music';
 import { get, toast } from '../state/store';
-import { bindEngine, setStatus, toggleCam, toggleMic, toggleMusic } from './actions';
+import { bindEngine, setStatus, toggleCam, toggleMic, toggleMusic, zoomBy } from './actions';
 import { ChatPanel } from './ChatPanel';
 import { Dock, Hint, MeetingBanner, PlayerCard, SelectedCard, Toasts, TopRight } from './Hud';
 import { MediaStrip } from './MediaStrip';
@@ -39,6 +39,9 @@ export function Office() {
       if (k === 'm') toggleMic();
       if (k === 'v') toggleCam();
       if (k === 'b') toggleMusic();
+      if (k === '=' || k === '+') zoomBy(1);
+      if (k === '-' || k === '_') zoomBy(-1);
+      if (k === '0') zoomBy(0);
     };
     const iv = window.setInterval(() => {
       const idle = Date.now() - lastActive > AWAY_AFTER_MS;

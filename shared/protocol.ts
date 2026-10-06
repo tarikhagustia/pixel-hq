@@ -20,6 +20,7 @@ export interface Motion {
   dir: Dir;
   moving: boolean;
   seat: string | null;
+  ride: boolean; // on a scooter
 }
 
 /** Slower-changing presence fields. */
@@ -67,7 +68,7 @@ export type ServerMsg =
   | { t: 'welcome'; selfId: string; players: PlayerState[]; history: ChatMessage[]; iceServers: RTCIceServerLike[] }
   | { t: 'joined'; player: PlayerState }
   | { t: 'left'; id: string }
-  | { t: 'snapshot'; s: Array<[string, number, number, Dir, 0 | 1, string | null]> }
+  | { t: 'snapshot'; s: Array<[string, number, number, Dir, 0 | 1, string | null, 0 | 1]> }
   | { t: 'presence'; id: string; p: Partial<Presence> }
   | { t: 'chat'; msg: ChatMessage }
   | { t: 'signal'; from: string; data: SignalData }
