@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Engine } from '../game/engine';
+import { initMusic } from '../game/music';
 import { get, toast } from '../state/store';
-import { bindEngine, setStatus, toggleCam, toggleMic } from './actions';
+import { bindEngine, setStatus, toggleCam, toggleMic, toggleMusic } from './actions';
 import { ChatPanel } from './ChatPanel';
 import { Dock, Hint, MeetingBanner, PlayerCard, SelectedCard, Toasts, TopRight } from './Hud';
 import { MediaStrip } from './MediaStrip';
@@ -17,8 +18,9 @@ export function Office() {
     const engine = new Engine(canvasRef.current!);
     bindEngine(engine);
     engine.start();
+    const stopMusic = initMusic();
     toast('Welcome in! Walk with WASD — get close to someone to talk.');
-    return () => { engine.stop(); bindEngine(null); };
+    return () => { engine.stop(); bindEngine(null); stopMusic(); };
   }, []);
 
   // keyboard shortcuts + automatic "away"
@@ -36,6 +38,7 @@ export function Office() {
       const k = e.key.toLowerCase();
       if (k === 'm') toggleMic();
       if (k === 'v') toggleCam();
+      if (k === 'b') toggleMusic();
     };
     const iv = window.setInterval(() => {
       const idle = Date.now() - lastActive > AWAY_AFTER_MS;

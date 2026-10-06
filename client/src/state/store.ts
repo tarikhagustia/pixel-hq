@@ -20,6 +20,8 @@ export interface Me {
 export interface Settings {
   volume: number; // 0..1 master volume for other people
   sfxVolume: number; // 0..1 footsteps & other sound effects
+  music: boolean; // lofi background music on/off
+  musicVolume: number; // 0..1
   micId: string;
   camId: string;
   showNames: boolean;
@@ -65,7 +67,7 @@ export const useStore = create<State>(() => ({
   selected: null,
   hint: null,
   toasts: [],
-  settings: { volume: 1, sfxVolume: 1, micId: '', camId: '', showNames: true, showRange: true, ...(saved?.settings ?? {}) },
+  settings: { volume: 1, sfxVolume: 1, music: true, musicVolume: 0.4, micId: '', camId: '', showNames: true, showRange: true, ...(saved?.settings ?? {}) },
   micAvailable: false,
 }));
 

@@ -58,6 +58,9 @@ export function SettingsModal() {
               <input type="range" min={0} max={1} step={0.05} value={settings.volume} onChange={(e) => patch({ volume: Number(e.target.value) })} /></label>
             <label className="field"><span className="field-label">Sound effects · {Math.round(settings.sfxVolume * 100)}%</span>
               <input type="range" min={0} max={1} step={0.05} value={settings.sfxVolume} onChange={(e) => patch({ sfxVolume: Number(e.target.value) })} /></label>
+            <label className="field"><span className="field-label">Lofi music · {Math.round(settings.musicVolume * 100)}%</span>
+              <input type="range" min={0} max={1} step={0.05} value={settings.musicVolume} disabled={!settings.music} onChange={(e) => patch({ musicVolume: Number(e.target.value) })} /></label>
+            <label className="check"><input type="checkbox" checked={settings.music} onChange={(e) => patch({ music: e.target.checked })} /> Play lofi background music</label>
             <label className="check"><input type="checkbox" checked={settings.showNames} onChange={(e) => patch({ showNames: e.target.checked })} /> Show everyone's names</label>
             <label className="check"><input type="checkbox" checked={settings.showRange} onChange={(e) => patch({ showRange: e.target.checked })} /> Show my hearing range</label>
           </section>
@@ -68,7 +71,7 @@ export function SettingsModal() {
               <li><kbd>E</kbd>/<kbd>Space</kbd> sit / stand · click a chair to walk there and sit</li>
               <li><kbd>Enter</kbd> chat · <kbd>Esc</kbd> back to the office</li>
               <li><kbd>1</kbd>–<kbd>8</kbd> emotes · click a person for options</li>
-              <li><kbd>M</kbd> mute · <kbd>V</kbd> camera</li>
+              <li><kbd>M</kbd> mute · <kbd>V</kbd> camera · <kbd>B</kbd> music</li>
             </ul>
           </section>
         </div>

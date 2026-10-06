@@ -7,7 +7,8 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let noise: AudioBuffer | null = null;
 
-function audio() {
+/** Shared AudioContext (lazily created) — music.ts plays through it too. */
+export function audio() {
   if (ctx) return ctx;
   try { ctx = new AudioContext(); } catch { return null; }
   master = ctx.createGain();
@@ -24,7 +25,10 @@ export function unlockAudio() {
   if (c && c.state === 'suspended') void c.resume();
 }
 
-const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+/** Half a second of white noise, reused by every noise-based sound. */
+export const noiseBuffer = () => noise;
+
+export const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
 /** One noise burst through a filter with a fast attack and exponential decay. */
 function burst(c: AudioContext, out: AudioNode, at: number, o: {

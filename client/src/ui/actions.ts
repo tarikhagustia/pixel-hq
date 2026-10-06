@@ -5,6 +5,7 @@ import { media } from '../rtc/media';
 import { startRTC } from '../rtc/peers';
 import { get, patchMe, persistProfile, set } from '../state/store';
 import type { Engine } from '../game/engine';
+import { unlockAudio } from '../game/sfx';
 
 let engine: Engine | null = null;
 export const bindEngine = (e: Engine | null) => { engine = e; };
@@ -30,6 +31,11 @@ export function setStatus(status: Status) {
 
 export function toggleMic() { media.setMic(!get().me.mic); }
 export function toggleCam() { void media.setCam(!get().me.cam); }
+export function toggleMusic() {
+  unlockAudio();
+  set((s) => ({ settings: { ...s.settings, music: !s.settings.music } }));
+  persistProfile();
+}
 export function toggleScreen() { void media.setScreen(!get().me.screen); }
 
 export function leaveMeeting() {

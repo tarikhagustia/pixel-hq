@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { EMOTES, type Status } from '../../../shared/protocol';
 import { zoneById } from '../game/map';
 import { set, useStore } from '../state/store';
-import { emote, leaveMeeting, openDM, setStatus, toggleCam, toggleMic, toggleScreen, walkToPlayer } from './actions';
+import { emote, leaveMeeting, openDM, setStatus, toggleCam, toggleMic, toggleMusic, toggleScreen, walkToPlayer } from './actions';
 import { statusOf } from './PeoplePanel';
 import { Portrait } from './Portrait';
 
@@ -54,6 +54,7 @@ export function Dock() {
   const me = useStore((s) => s.me);
   const ui = useStore((s) => s.ui);
   const micAvailable = useStore((s) => s.micAvailable);
+  const music = useStore((s) => s.settings.music);
   const unread = useStore((s) => s.unread);
   const totalUnread = unread.global + unread.nearby + Object.values(unread.dm).reduce((a, b) => a + b, 0);
   return (
@@ -76,6 +77,9 @@ export function Dock() {
           </button>
         )}
         <div className="dock-sep" />
+        <button className={`dock-btn ${music ? 'on' : ''}`} onClick={toggleMusic} title={music ? 'Mute music (B)' : 'Play lofi music (B)'}>
+          {music ? '🎵' : '🔕'}<span>{music ? 'Music' : 'Music off'}</span>
+        </button>
         <button className={`dock-btn ${ui.emotes ? 'on' : ''}`} onClick={() => set((s) => ({ ui: { ...s.ui, emotes: !s.ui.emotes } }))} title="Emotes (1-8)">
           😊<span>React</span>
         </button>
