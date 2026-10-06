@@ -9,10 +9,12 @@ import { paintStatic } from './art/tiles';
 import { consume, endFrame, initInput, isDown } from './input';
 import { buildMap, MAP_H, MAP_W, MEETING_DOOR, zoneAt, type OfficeMap, type Seat } from './map';
 import { makeCanvas, outline, rect } from './pixel';
+import { footstep, unlockAudio, type Surface } from './sfx';
 
 const WALK = 78; // px / s
 const RUN = 128;
 const SEND_HZ = 15;
+const STEP_RADIUS = TILE * 7; // how far away other people's footsteps are audible
 export const VOICE_RADIUS = TILE * 6;
 
 interface Drawable { y: number; draw: () => void }
@@ -35,6 +37,8 @@ export class Engine {
   private preSit: { x: number; y: number } | null = null;
   private cat = { x: 36 * TILE, y: 9 * TILE, tx: 36 * TILE, ty: 9 * TILE, dir: 1, napUntil: 0, frame: 0 };
   private catSprites: HTMLCanvasElement[];
+  private lastStep = new Map<string, number>(); // body id -> last footstep index
+  private rugs: OfficeMap['furniture'];
   private motes = Array.from({ length: 18 }, (_, i) => ({ x: Math.random(), y: Math.random(), s: 0.2 + Math.random() * 0.5, w: i }));
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -42,7 +46,10 @@ export class Engine {
     this.staticLayer = paintStatic(this.map);
     for (const s of this.map.seats) this.seatById.set(s.id, s);
     this.catSprites = [paintCat(0), paintCat(1), paintCat(2)];
+    this.rugs = this.map.furniture.filter((f) => f.type === 'rug' || f.type === 'doormat');
     initInput();
+    window.addEventListener('keydown', unlockAudio);
+    window.addEventListener('pointerdown', unlockAudio);
     canvas.addEventListener('click', this.onClick);
     window.addEventListener('resize', this.resize);
     window.addEventListener('pagehide', persistPosition);
@@ -164,6 +171,8 @@ export class Engine {
       r.animT = r.moving ? r.animT + dt : 0;
     }
 
+    this.footsteps(st.players, st.me.zone);
+
     this.updateCat(dt, t);
 
     // camera
@@ -174,6 +183,40 @@ export class Engine {
     const mw = MAP_W * TILE, mh = MAP_H * TILE;
     this.cam.x = vw >= mw ? mw / 2 : Math.max(vw / 2, Math.min(mw - vw / 2, this.cam.x));
     this.cam.y = vh >= mh ? mh / 2 : Math.max(vh / 2, Math.min(mh - vh / 2, this.cam.y));
+  }
+
+  /** Play a footstep each time a walking body plants a foot (twice per 4-frame walk cycle). */
+  private footsteps(players: Record<string, PlayerState>, myZone: string) {
+    const vol = get().settings.sfxVolume;
+    const bodies: Array<[string, LiveBody]> = [['self', local], ...remotes];
+    for (const [id, b] of bodies) {
+      if (!b.moving) { this.lastStep.delete(id); continue; }
+      const idx = Math.floor(b.animT * 4);
+      if (this.lastStep.get(id) === idx) continue;
+      this.lastStep.set(id, idx);
+      if (id === 'self') { footstep(this.surfaceAt(b.x, b.y - 2), vol * 0.7); continue; }
+      // others: fade with distance, and respect meeting-room isolation like voice does
+      const p = players[id];
+      if (!p || (p.zone === 'meeting') !== (myZone === 'meeting')) continue;
+      const dx = b.x - local.x, d = Math.hypot(dx, b.y - local.y);
+      if (d >= STEP_RADIUS) continue;
+      const fall = 1 - d / STEP_RADIUS;
+      footstep(this.surfaceAt(b.x, b.y - 2), vol * 0.5 * fall * fall, dx / STEP_RADIUS);
+    }
+    for (const id of this.lastStep.keys()) if (id !== 'self' && !remotes.has(id)) this.lastStep.delete(id);
+  }
+
+  private surfaceAt(px: number, py: number): Surface {
+    const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
+    if (this.rugs.some((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.h)) return 'soft';
+    switch (this.map.floor[ty]?.[tx]) {
+      case 'wood': case 'woodWarm': case 'lightWood': return 'wood';
+      case 'checker': case 'stone': return 'hard';
+      case 'carpetBlue': case 'carpetGreen': return 'soft';
+      case 'grass': return 'grass';
+      case 'path': return 'gravel';
+      default: return 'wood';
+    }
   }
 
   private flushMove(force: boolean) {

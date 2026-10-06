@@ -56,6 +56,8 @@ export function SettingsModal() {
               </select></label>
             <label className="field"><span className="field-label">Voices volume · {Math.round(settings.volume * 100)}%</span>
               <input type="range" min={0} max={1} step={0.05} value={settings.volume} onChange={(e) => patch({ volume: Number(e.target.value) })} /></label>
+            <label className="field"><span className="field-label">Sound effects · {Math.round(settings.sfxVolume * 100)}%</span>
+              <input type="range" min={0} max={1} step={0.05} value={settings.sfxVolume} onChange={(e) => patch({ sfxVolume: Number(e.target.value) })} /></label>
             <label className="check"><input type="checkbox" checked={settings.showNames} onChange={(e) => patch({ showNames: e.target.checked })} /> Show everyone's names</label>
             <label className="check"><input type="checkbox" checked={settings.showRange} onChange={(e) => patch({ showRange: e.target.checked })} /> Show my hearing range</label>
           </section>
