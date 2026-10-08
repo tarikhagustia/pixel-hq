@@ -34,10 +34,16 @@ export interface Presence {
   speaking: boolean;
   inMeeting: boolean;
   zone: string;
+  /** Small activity tag shown under an NPC's name, e.g. "💻 Coding". Optional for real players too. */
+  activity?: string;
+  /** For NPCs only: picks which sprite the client renders (dog/duck get custom art; worker/barista reuse the human sheet). */
+  npcKind?: 'worker' | 'dog' | 'barista' | 'duck';
 }
 
 export interface PlayerState extends Motion, Presence {
   id: string;
+  /** True for server-simulated office NPCs. Never sent by real clients; server-authoritative. */
+  isNpc?: boolean;
 }
 
 export type ChatChannel = 'global' | 'nearby' | 'dm';

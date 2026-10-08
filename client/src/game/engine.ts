@@ -6,6 +6,7 @@ import { get, patchMe, persistProfile, set } from '../state/store';
 import { COL, FH, FW, frameRect, getSheet } from './art/character';
 import { AX, AY, getRideSprite } from './art/scooter';
 import { drawAnim, getSprite, sortY, type AnimEnv } from './art/furniture';
+import { getDogSprite, getDuckSprite } from './art/npc';
 import { paintStatic } from './art/tiles';
 import { consume, endFrame, initInput, isDown } from './input';
 import { buildMap, MAP_H, MAP_W, MEETING_DOOR, zoneAt, type OfficeMap, type Seat } from './map';
@@ -133,11 +134,13 @@ export class Engine {
 
     const nearSeat = this.nearestFreeSeat();
     const nearRack = !local.seat && !local.ride && !nearSeat && this.nearRack();
+    const nearNpc = !local.seat && !local.ride ? this.nearestNpc(st.players) : null;
     if (consume('e') || consume(' ')) {
       if (local.seat) this.standUp();
       else if (local.ride) this.setRide(false);
       else if (nearSeat) this.sit(nearSeat.id);
       else if (nearRack) this.setRide(true);
+      else if (nearNpc) { void import('../ui/actions').then(({ openDM }) => openDM(nearNpc.id)); }
     }
 
     if ((ix || iy) && local.seat) this.standUp();
@@ -160,7 +163,8 @@ export class Engine {
     const hint = local.seat ? 'E — stand up'
       : local.ride ? 'E — hop off the scooter'
       : nearSeat ? `E — sit (${nearSeat.label})`
-      : nearRack ? 'E — grab a scooter 🛴' : null;
+      : nearRack ? 'E — grab a scooter 🛴'
+      : nearNpc ? `E — chat with ${nearNpc.name}` : null;
     if (hint !== st.hint) set({ hint });
 
     // zone tracking (meeting room is a private audio space)
@@ -272,6 +276,17 @@ export class Engine {
 
   private nearRack() {
     return this.racks.some((f) => Math.hypot(f.x * TILE + f.w * TILE / 2 - local.x, (f.y + 1) * TILE - local.y) < 28);
+  }
+
+  private nearestNpc(players: Record<string, PlayerState>): PlayerState | null {
+    let best: PlayerState | null = null, bd = 30;
+    for (const [id, r] of remotes) {
+      const p = players[id];
+      if (!p?.isNpc) continue;
+      const d = Math.hypot(r.x - local.x, r.y - local.y);
+      if (d < bd) { bd = d; best = p; }
+    }
+    return best;
   }
 
   private setRide(on: boolean) {
@@ -532,11 +547,30 @@ export class Engine {
   }
 
   private drawCharacter(ctx: CanvasRenderingContext2D, b: LiveBody, p: PlayerState, t: number, linked: boolean, isSelf: boolean) {
-    const sheet = getSheet(p.avatar);
     const x = Math.round(b.x), y = Math.round(b.y);
     // shadow
     ctx.fillStyle = 'rgba(30,15,10,0.28)';
     ctx.beginPath(); ctx.ellipse(x, y - 1, 6, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+
+    if (p.npcKind === 'dog') {
+      const napping = p.activity === '😴 Napping';
+      const frame = napping ? 3 : b.moving ? (Math.floor(b.animT * 6) % 2) : 0;
+      const img = getDogSprite(frame);
+      ctx.save(); ctx.translate(x, y - 10);
+      if (b.dir === 'left') ctx.scale(-1, 1);
+      ctx.drawImage(img, -9, -7);
+      ctx.restore();
+      return;
+    }
+    if (p.npcKind === 'duck') {
+      const img = getDuckSprite();
+      ctx.save(); ctx.translate(x, y - 10);
+      ctx.drawImage(img, -6, -8);
+      ctx.restore();
+      return;
+    }
+
+    const sheet = getSheet(p.avatar);
     if (linked || (isSelf && p.speaking)) {
       ctx.strokeStyle = p.speaking ? 'rgba(120,230,140,0.9)' : 'rgba(120,230,140,0.45)';
       ctx.lineWidth = 1;

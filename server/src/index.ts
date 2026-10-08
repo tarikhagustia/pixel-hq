@@ -11,6 +11,7 @@ import {
   type Avatar, type ChatMessage, type ClientMsg, type PlayerState, type ServerMsg,
   type RTCIceServerLike, MAX_CHAT_LEN, MAX_NAME_LEN, NEARBY_CHAT_RADIUS, EMOTES,
 } from '../../shared/protocol';
+import { getNpcDef, initNpcs, isNpc, npcPlayerStates, npcReplyTo, tickNpcs } from './npc/state';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const MAX_PLAYERS = Number(process.env.MAX_PLAYERS ?? 16);
@@ -85,6 +86,7 @@ const num = (v: unknown, lo: number, hi: number, d: number) => {
 
 /** Players inside the meeting room cannot "hear" players outside it and vice versa. */
 const sameRoom = (a: PlayerState, b: PlayerState) => (a.zone === 'meeting') === (b.zone === 'meeting');
+const npcName = (id: string) => getNpcDef(id)?.name ?? 'Someone';
 
 function handle(c: Client, msg: ClientMsg) {
   if (msg.t === 'ping') { send(c, { t: 'pong' }); return; }
@@ -103,7 +105,7 @@ function handle(c: Client, msg: ClientMsg) {
     };
     send(c, {
       t: 'welcome', selfId: c.id, iceServers: ICE_SERVERS, history,
-      players: [...clients.values()].filter((o) => o.state && o.id !== c.id).map((o) => o.state!),
+      players: [...npcPlayerStates(), ...[...clients.values()].filter((o) => o.state && o.id !== c.id).map((o) => o.state!)],
     });
     broadcast({ t: 'joined', player: c.state }, c.id);
     console.log(`[+] ${c.state.name} (${c.id}) — ${clients.size} connected`);
@@ -163,6 +165,17 @@ function handle(c: Client, msg: ClientMsg) {
           if (o.id === c.id || (d <= NEARBY_CHAT_RADIUS && sameRoom(s, o.state))) send(o, { t: 'chat', msg: out });
         }
       } else if (msg.channel === 'dm') {
+        if (isNpc(msg.to ?? '')) {
+          out.to = msg.to;
+          send(c, { t: 'chat', msg: out });
+          void npcReplyTo(msg.to!, c.id, text).then((replyText) => {
+            const npcOut: ChatMessage = {
+              id: crypto.randomUUID(), channel: 'dm', from: msg.to!, fromName: npcName(msg.to!), to: c.id, text: replyText, ts: Date.now(),
+            };
+            send(c, { t: 'chat', msg: npcOut });
+          });
+          return;
+        }
         const target = msg.to ? clients.get(msg.to) : undefined;
         if (!target?.state) { send(c, { t: 'error', message: 'That person is no longer here.' }); return; }
         out.to = target.id;
@@ -214,7 +227,12 @@ setInterval(() => {
       c.dirty = false;
     }
   }
+  const playerSeats = new Set<string>();
+  for (const c of clients.values()) if (c.state?.seat) playerSeats.add(c.state.seat);
+  const { snapshot: npcSnap, presence: npcPresence } = tickNpcs(1 / TICK_HZ, playerSeats);
+  s.push(...npcSnap);
   if (s.length) broadcast({ t: 'snapshot', s });
+  for (const p of npcPresence) broadcast({ t: 'presence', id: p.id, p: p.p });
 }, 1000 / TICK_HZ);
 
 // Chat rate-limit refill + heartbeat
@@ -228,3 +246,6 @@ setInterval(() => {
 }, 15000);
 
 server.listen(PORT, () => console.log(`Pixel HQ server on http://localhost:${PORT} (ws: /ws)`));
+
+initNpcs();
+console.log('[npc] office cast spawned');

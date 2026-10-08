@@ -44,6 +44,7 @@ function distanceTo(id: string) {
 }
 
 function shouldConnect(me: Me, p: PlayerState, existing: boolean) {
+  if (p.isNpc) return false; // NPCs don't have a real mic/WebRTC peer — never attempt a voice call
   if (me.inMeeting && p.inMeeting) return true;
   if (me.inMeeting !== p.inMeeting) return false; // meeting room is acoustically private
   if (me.status !== 'available' || p.status !== 'available') return false; // busy/away pause proximity audio
