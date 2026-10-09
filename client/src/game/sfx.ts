@@ -101,3 +101,61 @@ export function footstep(surface: Surface, volume: number, pan = 0) {
       break;
   }
 }
+
+// ------------------------------------------------------------------ NPC "animalese" talk blips
+// Animal-Crossing-style gibberish: a short run of pitched, filtered blips timed to the
+// message length, with a distinct voice per NPC kind (pitch range + oscillator timbre).
+export type TalkVoice = 'worker' | 'dog' | 'barista' | 'duck';
+
+const VOICE_PROFILE: Record<TalkVoice, { base: number; spread: number; type: OscillatorType; dur: number; gap: [number, number]; slide: number }> = {
+  worker: { base: 190, spread: 70, type: 'triangle', dur: 0.1, gap: [0.085, 0.14], slide: 0.82 },
+  barista: { base: 150, spread: 50, type: 'triangle', dur: 0.12, gap: [0.1, 0.16], slide: 0.8 },
+  dog: { base: 115, spread: 35, type: 'sawtooth', dur: 0.16, gap: [0.17, 0.26], slide: 0.7 },
+  duck: { base: 560, spread: 110, type: 'square', dur: 0.065, gap: [0.07, 0.11], slide: 1.35 },
+};
+
+/** A per-NPC pitch fingerprint so the same character always sounds the same (0..1). */
+export function voiceFingerprint(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+function blip(c: AudioContext, out: AudioNode, at: number, freq: number, profile: typeof VOICE_PROFILE['worker'], gain: number) {
+  const o = c.createOscillator();
+  o.type = profile.type;
+  o.frequency.setValueAtTime(freq, at);
+  o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * profile.slide), at + profile.dur);
+  const f = c.createBiquadFilter();
+  f.type = 'bandpass'; f.frequency.value = freq * 1.7; f.Q.value = 2.8;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(gain, at + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + profile.dur);
+  o.connect(f).connect(g).connect(out);
+  o.start(at); o.stop(at + profile.dur + 0.02);
+}
+
+/**
+ * Play a short burst of "talking" blips when an NPC sends a chat line — Animal Crossing style
+ * mumbling rather than real speech. `textLen` scales how many syllables play; `pitchSeed` (0..1,
+ * from `voiceFingerprint`) keeps one character's voice consistent across messages.
+ */
+export function npcTalk(voice: TalkVoice, textLen: number, pitchSeed: number, volume = 1) {
+  if (volume <= 0.001) return;
+  const c = audio();
+  if (!c || c.state !== 'running' || !master) return;
+  const profile = VOICE_PROFILE[voice];
+  const out = c.createGain();
+  out.gain.value = volume;
+  out.connect(master);
+  const base = profile.base + (pitchSeed - 0.5) * profile.spread * 0.6;
+  const syllables = Math.max(3, Math.min(14, Math.round(textLen / 2.6)));
+  let t = c.currentTime + 0.03;
+  for (let i = 0; i < syllables; i++) {
+    const freq = base + (Math.random() - 0.5) * profile.spread;
+    blip(c, out, t, Math.max(60, freq), profile, rnd(0.22, 0.34));
+    t += rnd(profile.gap[0], profile.gap[1]);
+  }
+}
+

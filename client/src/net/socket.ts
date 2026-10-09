@@ -119,10 +119,15 @@ function handle(msg: ServerMsg) {
     }
     case 'chat': {
       const m = msg.msg;
-      const { selfId, ui } = get();
+      const { selfId, ui, players } = get();
       const mine = m.from === selfId;
-      // speech bubble over the sender's head for public chat (DMs stay private)
-      if (m.channel !== 'dm') addBubble(mine ? 'self' : m.from, m.text);
+      const fromNpc = players[m.from]?.isNpc;
+      // speech bubble over the sender's head for public chat (DMs stay private between real players,
+      // but an NPC's DM reply is only ever visible to the one player it's for, so it's safe to show)
+      if (m.channel !== 'dm' || fromNpc) addBubble(mine ? 'self' : m.from, m.text);
+      if (fromNpc && !mine) {
+        void import('./npcVoice').then(({ playNpcTalk }) => playNpcTalk(players[m.from], m.text));
+      }
       set((s) => {
         const unread = { ...s.unread, dm: { ...s.unread.dm } };
         const chatVisible = s.ui.chat;
