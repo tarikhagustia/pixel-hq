@@ -15,28 +15,9 @@ export interface NpcDef {
 
 // Avatars reuse the exact same palette-swappable character sheet as real players —
 // just different skin/hair/shirt/pants combos so each NPC reads as a distinct person.
-export const WORKERS: NpcDef[] = [
-  { id: 'npc-dina', name: '(NPC) Dina', kind: 'worker', homeSeat: 'desk-1', personality: 'Chipper frontend dev, way too into CSS animations.',
-    avatar: { skin: '#f2c6a0', hair: '#b4533a', hairStyle: 'long', shirt: '#4fb3a9', pants: '#3b4a6b' } },
-  { id: 'npc-raka', name: '(NPC) Raka', kind: 'worker', homeSeat: 'desk-2', personality: 'Backend dev, deadpan, blames everything on cache.',
-    avatar: { skin: '#c68a5e', hair: '#1d1a1a', hairStyle: 'short', shirt: '#3a3f4a', pants: '#2f3a4f' } },
-  { id: 'npc-sari', name: '(NPC) Sari', kind: 'worker', homeSeat: 'desk-5', personality: 'QA lead, finds bugs for sport, slightly too enthusiastic about edge cases.',
-    avatar: { skin: '#f7d7bd', hair: '#2b2b33', hairStyle: 'bun', shirt: '#c25b7a', pants: '#3e3a52' } },
-  { id: 'npc-budi', name: '(NPC) Budi', kind: 'worker', homeSeat: 'desk-6', personality: 'DevOps, always "just restarting something", suspicious of Mondays.',
-    avatar: { skin: '#8d5a3b', hair: '#2b1d16', hairStyle: 'spiky', shirt: '#5b8fd9', pants: '#5a4636' } },
-  { id: 'npc-wulan', name: '(NPC) Wulan', kind: 'worker', homeSeat: 'desk-9', personality: 'Product manager, speaks exclusively in roadmaps and vibes.',
-    avatar: { skin: '#e0a979', hair: '#d9a54a', hairStyle: 'long', shirt: '#9b6bd1', pants: '#4a5a3b' } },
-  { id: 'npc-eko', name: '(NPC) Eko', kind: 'worker', homeSeat: 'desk-10', personality: 'Intern, visibly overwhelmed, drinks coffee like water.',
-    avatar: { skin: '#f2c6a0', hair: '#5a3825', hairStyle: 'short', shirt: '#e06a5f', pants: '#3b4a6b' } },
-  { id: 'npc-maya', name: '(NPC) Maya', kind: 'worker', homeSeat: 'shared-0-n0', personality: 'Designer, judges your font choices silently.',
-    avatar: { skin: '#f7d7bd', hair: '#5a3825', hairStyle: 'bun', shirt: '#f0a04b', pants: '#3e3a52' } },
-  { id: 'npc-galih', name: '(NPC) Galih', kind: 'worker', homeSeat: 'shared-0-n2', personality: 'Data analyst, answers every question with "it depends on the sample size".',
-    avatar: { skin: '#c68a5e', hair: '#2b1d16', hairStyle: 'short', shirt: '#5b8fd9', pants: '#2f3a4f' } },
-  { id: 'npc-intan', name: '(NPC) Intan', kind: 'worker', homeSeat: 'shared-1-n0', personality: 'HR, unreasonably warm, remembers everyone\'s birthday.',
-    avatar: { skin: '#f2c6a0', hair: '#b4533a', hairStyle: 'long', shirt: '#4f8a5b', pants: '#3b4a6b' } },
-  { id: 'npc-fajar', name: '(NPC) Fajar', kind: 'worker', homeSeat: 'shared-1-n2', personality: 'Senior eng, 10x in his own mind, still uses vim for everything.',
-    avatar: { skin: '#8d5a3b', hair: '#1d1a1a', hairStyle: 'spiky', shirt: '#3a3f4a', pants: '#5a4636' } },
-];
+// (Previously had 10 generic desk-worker NPCs with identical work/break behavior,
+// just different names/avatars — trimmed down to the 3 NPCs with actually distinct
+// sprites and behavior: the dog, the barista, and the rubber duck.)
 
 export const BIT: NpcDef = {
   id: 'npc-bit', name: '(NPC) Bit', kind: 'dog', personality: 'Office corgi. Good boy. Occasionally files bug reports by barking at monitors.',
@@ -53,4 +34,4 @@ export const QUACKY: NpcDef = {
   avatar: { skin: '#f6d365', hair: '#f6d365', hairStyle: 'short', shirt: '#f6d365', pants: '#e0a050' },
 };
 
-export const ALL_NPCS: NpcDef[] = [...WORKERS, BIT, BEANIE, QUACKY];
+export const ALL_NPCS: NpcDef[] = [BIT, BEANIE, QUACKY];
