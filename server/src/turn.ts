@@ -6,29 +6,28 @@
 // public STUN) when Cloudflare credentials aren't configured.
 import type { RTCIceServerLike } from '../../shared/protocol';
 
-const TURN_TOKEN_ID = process.env.CLOUDFLARE_TURN_TOKEN_ID;
-const TURN_API_TOKEN = process.env.CLOUDFLARE_TURN_API_TOKEN;
-
 // Ask Cloudflare for credentials valid this long (seconds). Cloudflare allows
 // up to 86400 (24h); we refresh a bit before that so no in-flight call ever
 // gets a server response with an already-expired set.
 const TTL_SECONDS = 23 * 60 * 60; // 23h
 const REFRESH_MARGIN_MS = 30 * 60 * 1000; // refresh 30min before expiry
 
-const STATIC_FALLBACK: RTCIceServerLike[] = process.env.ICE_SERVERS
-  ? JSON.parse(process.env.ICE_SERVERS)
-  : [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
-
 let cached: { iceServers: RTCIceServerLike[]; expiresAt: number } | null = null;
 let inFlight: Promise<RTCIceServerLike[]> | null = null;
 
-async function fetchFromCloudflare(): Promise<RTCIceServerLike[]> {
+function staticFallback(): RTCIceServerLike[] {
+  return process.env.ICE_SERVERS
+    ? JSON.parse(process.env.ICE_SERVERS)
+    : [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+}
+
+async function fetchFromCloudflare(tokenId: string, apiToken: string): Promise<RTCIceServerLike[]> {
   const res = await fetch(
-    `https://rtc.live.cloudflare.com/v1/turn/keys/${TURN_TOKEN_ID}/credentials/generate`,
+    `https://rtc.live.cloudflare.com/v1/turn/keys/${tokenId}/credentials/generate`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${TURN_API_TOKEN}`,
+        Authorization: `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ ttl: TTL_SECONDS }),
@@ -45,13 +44,19 @@ async function fetchFromCloudflare(): Promise<RTCIceServerLike[]> {
 
 /** Returns current ICE servers, refreshing from Cloudflare when the cache is stale or missing. */
 export async function getIceServers(): Promise<RTCIceServerLike[]> {
-  if (!TURN_TOKEN_ID || !TURN_API_TOKEN) return STATIC_FALLBACK;
+  // Read lazily (not as a module-level const) so this works regardless of
+  // import/dotenv-config ordering — ESM hoists static imports above
+  // top-of-file side effects like `config()`, so a module-level constant
+  // here would always see `undefined` and silently use the fallback.
+  const tokenId = process.env.CLOUDFLARE_TURN_TOKEN_ID;
+  const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN;
+  if (!tokenId || !apiToken) return staticFallback();
 
   const now = Date.now();
   if (cached && cached.expiresAt > now) return cached.iceServers;
   if (inFlight) return inFlight;
 
-  inFlight = fetchFromCloudflare()
+  inFlight = fetchFromCloudflare(tokenId, apiToken)
     .then((iceServers) => {
       cached = { iceServers, expiresAt: now + TTL_SECONDS * 1000 - REFRESH_MARGIN_MS };
       return iceServers;
@@ -59,7 +64,7 @@ export async function getIceServers(): Promise<RTCIceServerLike[]> {
     .catch((err) => {
       console.error('[turn] Cloudflare credential fetch failed, falling back to static ICE_SERVERS:', err);
       // Don't poison the cache — try again next call. Serve the static list for now.
-      return STATIC_FALLBACK;
+      return staticFallback();
     })
     .finally(() => {
       inFlight = null;
