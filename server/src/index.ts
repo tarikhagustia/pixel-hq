@@ -9,17 +9,15 @@ import { WebSocketServer, WebSocket } from 'ws';
 config();
 import {
   type Avatar, type ChatMessage, type ClientMsg, type PlayerState, type ServerMsg,
-  type RTCIceServerLike, MAX_CHAT_LEN, MAX_NAME_LEN, NEARBY_CHAT_RADIUS, EMOTES,
+  MAX_CHAT_LEN, MAX_NAME_LEN, NEARBY_CHAT_RADIUS, EMOTES,
 } from '../../shared/protocol';
 import { getNpcDef, initNpcs, isNpc, npcPlayerStates, npcReplyTo, tickNpcs } from './npc/state';
+import { getIceServers } from './turn';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const MAX_PLAYERS = Number(process.env.MAX_PLAYERS ?? 16);
 const TICK_HZ = 15;
 const HISTORY = 60;
-const ICE_SERVERS: RTCIceServerLike[] = process.env.ICE_SERVERS
-  ? JSON.parse(process.env.ICE_SERVERS)
-  : [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
 
 // ---------------------------------------------------------------- static files
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -103,12 +101,15 @@ function handle(c: Client, msg: ClientMsg) {
       dir: 'down', moving: false, seat: null, ride: false,
       status: 'available', mic: false, cam: false, screen: false, speaking: false, inMeeting: false, zone: 'entrance',
     };
-    send(c, {
-      t: 'welcome', selfId: c.id, iceServers: ICE_SERVERS, history,
-      players: [...npcPlayerStates(), ...[...clients.values()].filter((o) => o.state && o.id !== c.id).map((o) => o.state!)],
+    const joinedState = c.state;
+    void getIceServers().then((iceServers) => {
+      send(c, {
+        t: 'welcome', selfId: c.id, iceServers, history,
+        players: [...npcPlayerStates(), ...[...clients.values()].filter((o) => o.state && o.id !== c.id).map((o) => o.state!)],
+      });
     });
-    broadcast({ t: 'joined', player: c.state }, c.id);
-    console.log(`[+] ${c.state.name} (${c.id}) — ${clients.size} connected`);
+    broadcast({ t: 'joined', player: joinedState }, c.id);
+    console.log(`[+] ${joinedState.name} (${c.id}) — ${clients.size} connected`);
     return;
   }
 
