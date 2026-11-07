@@ -2,18 +2,20 @@
 import { send } from '../net/socket';
 import { get, patchMe, set, toast } from '../state/store';
 
-type TrackListener = (kind: 'audio' | 'cam' | 'screen', track: MediaStreamTrack | null) => void;
+type TrackListener = (kind: 'audio' | 'cam' | 'screen' | 'screenAudio', track: MediaStreamTrack | null) => void;
 
 class LocalMedia {
   audio: MediaStreamTrack | null = null;
   cam: MediaStreamTrack | null = null;
   screen: MediaStreamTrack | null = null;
+  /** System/tab audio captured alongside the screen share, when the browser/OS supports it. */
+  screenAudio: MediaStreamTrack | null = null;
   private listeners: TrackListener[] = [];
   private audioCtx: AudioContext | null = null;
   private vadTimer: number | undefined;
 
   onTrack(l: TrackListener) { this.listeners.push(l); }
-  private emit(kind: 'audio' | 'cam' | 'screen', track: MediaStreamTrack | null) { this.listeners.forEach((l) => l(kind, track)); }
+  private emit(kind: 'audio' | 'cam' | 'screen' | 'screenAudio', track: MediaStreamTrack | null) { this.listeners.forEach((l) => l(kind, track)); }
 
   /** Ask for the microphone. Safe to call again to switch devices. */
   async initMic() {
@@ -68,18 +70,31 @@ class LocalMedia {
   async setScreen(on: boolean) {
     if (on) {
       try {
-        const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { max: 15 } }, audio: false });
+        // `audio: true` asks for system/tab audio alongside the video. Support varies a lot:
+        // Chrome can capture a shared Chrome tab's audio (and desktop audio on Windows/ChromeOS),
+        // Firefox supports it on most platforms, Safari does not support capturing audio at all.
+        // When unsupported the browser just omits the audio track — screen share still works,
+        // it silently falls back to video-only exactly like before this feature existed.
+        const s = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { max: 15 } },
+          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+        });
         this.screen = s.getVideoTracks()[0];
         this.screen.contentHint = 'detail';
         this.screen.onended = () => this.setScreen(false);
+        this.screenAudio = s.getAudioTracks()[0] ?? null;
+        if (this.screenAudio) this.screenAudio.onended = () => { this.screenAudio = null; this.emit('screenAudio', null); };
       } catch {
         return; // user cancelled the picker
       }
     } else {
       this.screen?.stop();
       this.screen = null;
+      this.screenAudio?.stop();
+      this.screenAudio = null;
     }
     this.emit('screen', this.screen);
+    this.emit('screenAudio', this.screenAudio);
     patchMe({ screen: !!this.screen });
     send({ t: 'presence', p: { screen: !!this.screen } });
   }

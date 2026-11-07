@@ -5,7 +5,7 @@ import { remoteMedia, subscribeMedia } from '../rtc/peers';
 import { useStore } from '../state/store';
 import { Portrait } from './Portrait';
 
-function Video({ stream, track, mirror }: { stream?: MediaStream; track?: MediaStreamTrack | null; mirror?: boolean }) {
+function Video({ stream, track, mirror, muted }: { stream?: MediaStream; track?: MediaStreamTrack | null; mirror?: boolean; muted?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const v = ref.current;
@@ -13,10 +13,10 @@ function Video({ stream, track, mirror }: { stream?: MediaStream; track?: MediaS
     v.srcObject = stream ?? (track ? new MediaStream([track]) : null);
     v.play().catch(() => {});
   }, [stream, track]);
-  return <video ref={ref} autoPlay playsInline muted className={mirror ? 'mirror' : ''} />;
+  return <video ref={ref} autoPlay playsInline muted={muted} className={mirror ? 'mirror' : ''} />;
 }
 
-interface TileInfo { key: string; name: string; avatar: Avatar; speaking: boolean; mic: boolean; video?: MediaStream; track?: MediaStreamTrack | null; kind: 'cam' | 'screen' | 'avatar'; self?: boolean }
+interface TileInfo { key: string; name: string; avatar: Avatar; speaking: boolean; mic: boolean; video?: MediaStream; track?: MediaStreamTrack | null; kind: 'cam' | 'screen' | 'avatar'; self?: boolean; hasAudio?: boolean }
 
 function Tile({ t, onFocus, big }: { t: TileInfo; onFocus?: () => void; big?: boolean }) {
   const divRef = useRef<HTMLDivElement>(null);
@@ -45,12 +45,18 @@ function Tile({ t, onFocus, big }: { t: TileInfo; onFocus?: () => void; big?: bo
     }
   };
 
+  // Screen-share audio plays through a dedicated <audio> element in peers.ts (wired to its
+  // own transceiver/track, separate from the video), so the <video> tag itself must stay
+  // muted for every tile — otherwise a video track that happens to carry audio metadata
+  // could double up, and the self-preview would echo back the local capture.
+  const videoMuted = true;
+
   return (
     <div ref={divRef} className={`tile ${t.speaking ? 'speaking' : ''} ${t.kind} ${big ? 'big' : ''}`} onClick={onFocus} title={onFocus ? 'Click to enlarge' : undefined}>
       {t.kind === 'avatar'
         ? <div className="tile-avatar"><Portrait avatar={t.avatar} size={big ? 96 : 44} /></div>
-        : <Video stream={t.video} track={t.track} mirror={t.self && t.kind === 'cam'} />}
-      <div className="tile-name">{!t.mic && '🔇 '}{t.kind === 'screen' ? `🖥️ ${t.name}` : t.name}</div>
+        : <Video stream={t.video} track={t.track} mirror={t.self && t.kind === 'cam'} muted={videoMuted} />}
+      <div className="tile-name">{!t.mic && '🔇 '}{t.kind === 'screen' ? `🖥️ ${t.name}${t.hasAudio ? ' 🔊' : ''}` : t.name}</div>
       {canFullscreen && (
         <button className="icon-btn tile-fullscreen-btn" onClick={toggleFullscreen} title={isFs ? 'Exit fullscreen' : 'Fullscreen'}>
           {isFs ? '⤡' : '⛶'}
@@ -73,14 +79,14 @@ export function MediaStrip() {
   const meeting = me.inMeeting;
   if (voice.length > 0 || meeting) {
     tiles.push({ key: 'self', name: 'You', avatar: me.avatar, speaking: me.speaking, mic: me.mic, kind: me.cam ? 'cam' : 'avatar', track: me.cam ? media.cam : null, self: true });
-    if (me.screen) screens.push({ key: 'self-screen', name: 'You', avatar: me.avatar, speaking: false, mic: true, kind: 'screen', track: media.screen, self: true });
+    if (me.screen) screens.push({ key: 'self-screen', name: 'You', avatar: me.avatar, speaking: false, mic: true, kind: 'screen', track: media.screen, self: true, hasAudio: !!media.screenAudio });
   }
   for (const id of voice) {
     const p = players[id];
     if (!p) continue;
     const m = remoteMedia(id);
     tiles.push({ key: id, name: p.name, avatar: p.avatar, speaking: p.speaking, mic: p.mic, kind: p.cam && m.cam ? 'cam' : 'avatar', video: p.cam ? m.cam : undefined });
-    if (p.screen && m.screen) screens.push({ key: `${id}-screen`, name: p.name, avatar: p.avatar, speaking: false, mic: true, kind: 'screen', video: m.screen });
+    if (p.screen && m.screen) screens.push({ key: `${id}-screen`, name: p.name, avatar: p.avatar, speaking: false, mic: true, kind: 'screen', video: m.screen, hasAudio: !!m.screenAudio });
   }
   if (tiles.length === 0) return null;
 

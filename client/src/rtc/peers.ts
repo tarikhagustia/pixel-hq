@@ -15,12 +15,13 @@ import { VOICE_RADIUS } from '../game/engine';
 const DISCONNECT_RADIUS = VOICE_RADIUS * 1.35;
 const FULL_VOLUME_RADIUS = 40;
 
-export interface RemoteMedia { cam?: MediaStream; screen?: MediaStream }
+export interface RemoteMedia { cam?: MediaStream; screen?: MediaStream; screenAudio?: MediaStream }
 
 interface Peer {
   id: string;
   pc: RTCPeerConnection;
   audio: HTMLAudioElement;
+  screenAudioEl: HTMLAudioElement;
   media: RemoteMedia;
   pending: RTCIceCandidateInit[];
 }
@@ -35,7 +36,7 @@ const bump = () => listeners.forEach((l) => l());
 export const remoteMedia = (id: string): RemoteMedia => peers.get(id)?.media ?? {};
 
 function localTrack(i: number) {
-  return i === 0 ? media.audio : i === 1 ? media.cam : media.screen;
+  return i === 0 ? media.audio : i === 1 ? media.cam : i === 2 ? media.screen : media.screenAudio;
 }
 
 function distanceTo(id: string) {
@@ -63,7 +64,9 @@ function createPeer(id: string): Peer {
   const pc = new RTCPeerConnection({ iceServers: iceServers as RTCIceServer[] });
   const audio = new Audio();
   audio.autoplay = true;
-  const peer: Peer = { id, pc, audio, media: {}, pending: [] };
+  const screenAudioEl = new Audio();
+  screenAudioEl.autoplay = true;
+  const peer: Peer = { id, pc, audio, screenAudioEl, media: {}, pending: [] };
   peers.set(id, peer);
 
   pc.onicecandidate = (e) => { if (e.candidate) send({ t: 'signal', to: id, data: { kind: 'ice', candidate: e.candidate.toJSON() } }); };
@@ -73,6 +76,7 @@ function createPeer(id: string): Peer {
     if (idx === 0) { audio.srcObject = stream; audio.play().catch(() => {}); }
     else if (idx === 1) peer.media.cam = stream;
     else if (idx === 2) peer.media.screen = stream;
+    else if (idx === 3) { peer.media.screenAudio = stream; screenAudioEl.srcObject = stream; screenAudioEl.play().catch(() => {}); }
     bump();
   };
   pc.onconnectionstatechange = () => {
@@ -85,8 +89,8 @@ function createPeer(id: string): Peer {
 async function startCall(id: string) {
   const peer = createPeer(id);
   const { pc } = peer;
-  for (let i = 0; i < 3; i++) {
-    const t = pc.addTransceiver(i === 0 ? 'audio' : 'video', { direction: 'sendrecv' });
+  for (let i = 0; i < 4; i++) {
+    const t = pc.addTransceiver(i === 0 || i === 3 ? 'audio' : 'video', { direction: 'sendrecv' });
     await t.sender.replaceTrack(localTrack(i));
   }
   const offer = await pc.createOffer();
@@ -101,6 +105,7 @@ function closePeer(id: string, notify: boolean, cool = 2500) {
   cooldown.set(id, performance.now() + cool);
   try { p.pc.close(); } catch { /* ignore */ }
   p.audio.srcObject = null;
+  p.screenAudioEl.srcObject = null;
   if (notify) send({ t: 'signal', to: id, data: { kind: 'bye' } });
   syncVoicePeers();
   bump();
@@ -165,7 +170,11 @@ function tick() {
     } else if (!want && peer) {
       closePeer(p.id, true);
     }
-    if (peer) peer.audio.volume = Math.max(0, Math.min(1, volumeFor(st.me, p) * st.settings.volume));
+    if (peer) {
+      const vol = Math.max(0, Math.min(1, volumeFor(st.me, p) * st.settings.volume));
+      peer.audio.volume = vol;
+      peer.screenAudioEl.volume = vol;
+    }
   }
   for (const id of peers.keys()) if (!st.players[id]) closePeer(id, false);
   syncVoicePeers();
@@ -174,7 +183,7 @@ function tick() {
 export function startRTC() {
   onSignal((from, data) => { void handleSignal(from, data); });
   media.onTrack((kind, track) => {
-    const idx = kind === 'audio' ? 0 : kind === 'cam' ? 1 : 2;
+    const idx = kind === 'audio' ? 0 : kind === 'cam' ? 1 : kind === 'screen' ? 2 : 3;
     for (const p of peers.values()) {
       const t = p.pc.getTransceivers()[idx];
       t?.sender.replaceTrack(track).catch(() => {});
